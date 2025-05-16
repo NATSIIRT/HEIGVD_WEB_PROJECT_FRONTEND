@@ -100,6 +100,18 @@ make watch
 
 ---
 
+## 📦 Build
+
+Build the project for production:
+
+```bash
+npm run build
+```
+
+You can find the production file (`index.html`) in the `dist` folder.
+
+---
+
 ## 📌 Notes
 
 - Rust functions must be annotated with `#[wasm_bindgen]` to be accessible in JavaScript.
