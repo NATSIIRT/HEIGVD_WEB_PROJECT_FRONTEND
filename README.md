@@ -1,54 +1,111 @@
-# React + TypeScript + Vite
+# 🔐 Password Manager – Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> The backend part is here : https://github.com/Thynkon/password-manager-api
 
-Currently, two official plugins are available:
+A modern frontend project for a secure password manager using:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **React + Vite** for the user interface
+- **TailwindCSS** for styling
+- **Rust (compiled to WebAssembly)** for client-side encryption
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📁 Project Structure
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```
+HEIGVD_WEB_PROJECT_FRONTEND/
+├── public/                 # Static files (favicon, etc.)
+├── src/
+│   ├── assets/             # Images, fonts, icons
+│   ├── components/         # Reusable UI components (buttons, fields, etc.)
+│   ├── pages/              # Routed pages (Home, Passwords, etc.)
+│   ├── routes/             # Centralized routing logic (AppRoutes)
+│   ├── styles/             # Tailwind + custom CSS
+│   ├── utils/              # Utility functions)
+│   ├── wasm/               # Rust crate for encryption logic
+│   │   └── crypto/         # Rust crate (created with wasm-pack)
+│   ├── App.tsx             # Main app component
+│   ├── main.tsx            # ReactDOM entry point
+│   └── index.css           # Tailwind entry
+├── Makefile                # Build/watch Rust WASM easily
+├── package.json            # Project metadata + dependencies
+├── tailwind.config.js      # Tailwind setup
+├── postcss.config.cjs      # PostCSS setup for Tailwind
+└── vite.config.ts          # Vite configuration
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🦀 Rust Crate (`crypto`)
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+The `src/wasm/crypto` folder is a Rust crate compiled to WebAssembly using [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
+
+### 🔧 Rust dependencies
+
+In `Cargo.toml`:
+
+```toml
+[dependencies]
+wasm-bindgen = "0.2"     # Required for JS/WASM interop
+base64 = "0.21"          # Used for simple encryption demo
 ```
+
+---
+
+## 🔗 React ↔ WASM Integration
+
+1. **Build the crate**:
+
+   ```bash
+   wasm-pack build --target bundler
+   ```
+
+2. **Install in React**:
+
+   ```bash
+   npm install ./src/wasm/crypto/pkg
+   ```
+
+3. **Import in React**:
+   ```tsx
+   import { encrypt } from "crypto";
+   ```
+
+---
+
+## 🛠 Makefile Commands
+
+| Command        | Description                               |
+| -------------- | ----------------------------------------- |
+| `make build`   | Builds the Rust crate using `wasm-pack`   |
+| `make watch`   | Automatically rebuild on file change      |
+| `make clean`   | Deletes generated `pkg/` folder           |
+| `make install` | Builds and installs WASM crate into React |
+
+---
+
+## 🚀 Development
+
+Start React dev server:
+
+```bash
+npm run dev
+```
+
+Start Rust WASM watcher (in another terminal):
+
+```bash
+make watch
+```
+
+---
+
+## 📌 Notes
+
+- Rust functions must be annotated with `#[wasm_bindgen]` to be accessible in JavaScript.
+- The crate must use `--target bundler` for Vite compatibility.
+- All encryption happens **locally in the browser**, ensuring privacy.
+
+---
+
+Built with ❤️ by [Thynkon](https://github.com/Thynkon) & [NATSIIRT](https://github.com/NATSIIRT) at HEIG-VD.
