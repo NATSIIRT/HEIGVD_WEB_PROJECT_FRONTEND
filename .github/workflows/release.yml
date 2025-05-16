@@ -1,0 +1,42 @@
+name: Release index.html (React + Rust)
+
+on:
+  push:
+    tags:
+      - "v*" # Trigger on version tags like v1.0.0
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          profile: minimal
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Build project (including Rust WASM)
+        run: npm run build
+
+      - name: Upload index.html to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/index.html
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
