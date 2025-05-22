@@ -1,46 +1,52 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Eye, EyeOff } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { toast } from "sonner"
-import { Label } from "@/components/ui/label"
-import { useNavigate } from "react-router-dom"
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import { useNavigate } from "react-router-dom";
 
 export default function RegisterPage() {
-  const navigate = useNavigate()
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
     confirmPassword: "",
-  })
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Les mots de passe ne correspondent pas")
-      return
+      toast.error("Les mots de passe ne correspondent pas");
+      return;
     }
 
     if (formData.password.length < 8) {
-      toast.error("Le mot de passe doit contenir au moins 8 caractères")
-      return
+      toast.error("Le mot de passe doit contenir au moins 8 caractères");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       const response = await fetch("http://localhost:3000/users", {
@@ -52,29 +58,32 @@ export default function RegisterPage() {
           username: formData.username,
           password: formData.password,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Erreur lors de l'inscription")
+        throw new Error("Erreur lors de l'inscription");
       }
 
-      const data = await response.json()
-      localStorage.setItem("token", data.token)
-      toast.success("Inscription réussie")
-      navigate("/")
+      const data = await response.json();
+      localStorage.setItem("token", data.token);
+      toast.success("Inscription réussie");
+      navigate("/");
     } catch (error) {
-      toast.error("Une erreur est survenue lors de l'inscription")
+      toast.error("Une erreur est survenue lors de l'inscription");
+      console.error("Error details:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Créer un compte</CardTitle>
-          <CardDescription>Inscrivez-vous pour commencer à gérer vos mots de passe</CardDescription>
+          <CardDescription>
+            Inscrivez-vous pour commencer à gérer vos mots de passe
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -109,9 +118,15 @@ export default function RegisterPage() {
                   className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                   <span className="sr-only">
-                    {showPassword ? "Cacher le mot de passe" : "Afficher le mot de passe"}
+                    {showPassword
+                      ? "Cacher le mot de passe"
+                      : "Afficher le mot de passe"}
                   </span>
                 </Button>
               </div>
@@ -135,9 +150,15 @@ export default function RegisterPage() {
                   className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                   <span className="sr-only">
-                    {showConfirmPassword ? "Cacher le mot de passe" : "Afficher le mot de passe"}
+                    {showConfirmPassword
+                      ? "Cacher le mot de passe"
+                      : "Afficher le mot de passe"}
                   </span>
                 </Button>
               </div>
@@ -149,5 +170,5 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
