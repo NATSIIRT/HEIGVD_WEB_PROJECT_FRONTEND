@@ -121,7 +121,7 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500">
             Vous n&apos;avez pas de compte ?{" "}
             <Link
-              to="/register"
+              to="/sign-up"
               className="font-medium text-primary hover:underline"
             >
               S&apos;inscrire
