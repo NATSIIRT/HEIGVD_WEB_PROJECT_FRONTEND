@@ -18,10 +18,11 @@ HEIGVD_WEB_PROJECT_FRONTEND/
 ├── src/
 │   ├── assets/             # Images, fonts, icons
 │   ├── components/         # Reusable UI components (buttons, fields, etc.)
+│   ├── lib/                # Lib files
 │   ├── pages/              # Routed pages (Home, Passwords, etc.)
 │   ├── routes/             # Centralized routing logic (AppRoutes)
-│   ├── styles/             # Tailwind + custom CSS
-│   ├── utils/              # Utility functions)
+│   ├── types/              # Types files
+│   ├── utils/              # Utility functions
 │   ├── wasm/               # Rust crate for encryption logic
 │   │   └── crypto/         # Rust crate (created with wasm-pack)
 │   ├── App.tsx             # Main app component
@@ -33,6 +34,8 @@ HEIGVD_WEB_PROJECT_FRONTEND/
 ├── postcss.config.cjs      # PostCSS setup for Tailwind
 └── vite.config.ts          # Vite configuration
 ```
+
+_Not exhaustive_
 
 ---
 
