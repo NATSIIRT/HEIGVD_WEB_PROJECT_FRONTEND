@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SecretList } from "@/components/SecretList";
@@ -218,15 +218,26 @@ export default function Dashboard() {
     setIsEditModalOpen(true);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/sign-in");
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-4xl p-4">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Mes mots de passe</h1>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setIsAddModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Ajouter
+            </Button>
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Déconnexion
+            </Button>
+          </div>
         </div>
 
         <div className="relative mb-6">
