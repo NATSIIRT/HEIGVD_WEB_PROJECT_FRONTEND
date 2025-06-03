@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { SecretList } from "@/components/SecretList";
 import { AddSecret } from "@/components/AddSecret";
 import { EditSecret } from "@/components/EditSecret";
+import { SetPIN } from "@/components/SetPIN";
 import type { Secret } from "@/types/secret";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { getStoredPIN } from "@/lib/indexedDB";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -21,6 +23,26 @@ export default function Dashboard() {
     id: number;
     username: string;
   } | null>(null);
+  const [showSetPIN, setShowSetPIN] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkPIN = async () => {
+      try {
+        const storedPIN = await getStoredPIN();
+        if (!storedPIN) {
+          setShowSetPIN(true);
+        }
+      } catch (error) {
+        console.error("Error checking PIN:", error);
+        toast.error("Erreur lors de la vérification du PIN");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkPIN();
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -223,57 +245,72 @@ export default function Dashboard() {
     navigate("/sign-in");
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-4xl p-4">
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Mes mots de passe</h1>
-          <div className="flex gap-2">
-            <Button onClick={() => setIsAddModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Ajouter
-            </Button>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Déconnexion
-            </Button>
+      {showSetPIN ? (
+        <SetPIN onComplete={() => setShowSetPIN(false)} />
+      ) : (
+        <div className="mx-auto max-w-4xl p-4">
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Mes mots de passe</h1>
+            <div className="flex gap-2">
+              <Button onClick={() => setIsAddModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Ajouter
+              </Button>
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Déconnexion
+              </Button>
+            </div>
           </div>
-        </div>
 
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Rechercher un mot de passe..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Rechercher un mot de passe..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <SecretList
+            secrets={filteredSecrets}
+            onSecretClick={handleSecretClick}
           />
-        </div>
 
-        <SecretList
-          secrets={filteredSecrets}
-          onSecretClick={handleSecretClick}
-        />
-
-        <AddSecret
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={handleAddSecret}
-        />
-
-        {selectedSecret && (
-          <EditSecret
-            isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false);
-              setSelectedSecret(null);
-            }}
-            secret={selectedSecret}
-            onEdit={handleEditSecret}
-            onDelete={handleDeleteSecret}
+          <AddSecret
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
+            onAdd={handleAddSecret}
           />
-        )}
-      </div>
+
+          {selectedSecret && (
+            <EditSecret
+              isOpen={isEditModalOpen}
+              onClose={() => {
+                setIsEditModalOpen(false);
+                setSelectedSecret(null);
+              }}
+              secret={selectedSecret}
+              onEdit={handleEditSecret}
+              onDelete={handleDeleteSecret}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
