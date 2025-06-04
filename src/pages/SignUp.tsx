@@ -9,6 +9,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -16,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-
+import { Link } from "react-router-dom";
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +62,8 @@ export default function RegisterPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Erreur lors de l'inscription");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.errors?.[0] || "Erreur lors de l'inscription");
       }
 
       const data = await response.json();
@@ -69,7 +71,7 @@ export default function RegisterPage() {
       toast.success("Inscription réussie");
       navigate("/");
     } catch (error) {
-      toast.error("Une erreur est survenue lors de l'inscription");
+      toast.error(error instanceof Error ? error.message : "Une erreur est survenue lors de l'inscription");
       console.error("Error details:", error);
     } finally {
       setIsLoading(false);
@@ -168,6 +170,14 @@ export default function RegisterPage() {
             </Button>
           </form>
         </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-gray-500">
+            Vous avez déjà un compte ?{" "}
+            <Link to="/sign-in" className="font-medium text-primary hover:underline">
+              Se connecter
+            </Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

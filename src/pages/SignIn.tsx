@@ -44,7 +44,8 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Identifiants invalides");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.errors?.[0] || "Identifiants invalides");
       }
 
       const data = await response.json();
@@ -52,7 +53,7 @@ export default function LoginPage() {
       toast.success("Connexion réussie");
       navigate("/");
     } catch (error) {
-      toast.error("Email ou mot de passe incorrect");
+      toast.error(error instanceof Error ? error.message : "Email ou mot de passe incorrect");
       console.error("Error during login:", error);
     } finally {
       setIsLoading(false);

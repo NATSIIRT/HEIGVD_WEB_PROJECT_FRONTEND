@@ -61,8 +61,9 @@ export default function Dashboard() {
         });
 
         if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
           throw new Error(
-            "Erreur lors de la récupération des informations utilisateur"
+            errorData?.errors?.[0] || "Erreur lors de la récupération des informations utilisateur"
           );
         }
 
@@ -86,7 +87,8 @@ export default function Dashboard() {
         });
 
         if (!response.ok) {
-          throw new Error("Erreur lors du chargement des secrets");
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.errors?.[0] || "Erreur lors du chargement des secrets");
         }
 
         const data = await response.json();
@@ -149,7 +151,8 @@ export default function Dashboard() {
       console.log("Raw response:", responseText);
 
       if (!response.ok) {
-        throw new Error(responseText || "Erreur lors de l'ajout du secret");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.errors?.[0] || "Erreur lors de l'ajout du secret");
       }
 
       // Only try to parse JSON if we have content
@@ -191,7 +194,8 @@ export default function Dashboard() {
       );
 
       if (!response.ok) {
-        throw new Error("Erreur lors de la modification du secret");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.errors?.[0] || "Erreur lors de la modification du secret");
       }
 
       const data = await response.json();
@@ -221,7 +225,8 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
-        throw new Error("Erreur lors de la suppression du secret");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.errors?.[0] || "Erreur lors de la suppression du secret");
       }
 
       const updatedSecrets = secrets.filter((secret) => secret.id !== id);
