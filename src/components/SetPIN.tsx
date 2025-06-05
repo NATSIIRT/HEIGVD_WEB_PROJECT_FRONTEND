@@ -7,14 +7,15 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { base64ToUint8Array, uint8ArrayToBase64 } from "@/lib/utils";
+import { uint8ArrayToBase64 } from "@/lib/utils";
 import { encrypt_key } from "@/wasm/crypto/pkg/crypto";
 
 interface SetPINProps {
-  onComplete: () => void;
+  onComplete: (pin: string) => void;
+  asymmetricKey: Uint8Array;
 }
 
-export function SetPIN({ onComplete }: SetPINProps) {
+export function SetPIN({ onComplete, asymmetricKey }: SetPINProps) {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState("");
@@ -34,17 +35,8 @@ export function SetPIN({ onComplete }: SetPINProps) {
     }
 
     try {
-      // Get the temporary asymmetric key
-      const tempKey = sessionStorage.getItem("tempAsymmetricKey");
-      if (!tempKey) {
-        throw new Error("Clé asymétrique temporaire non trouvée");
-      }
-
-      // Convert the key to Uint8Array
-      const keyBytes = base64ToUint8Array(tempKey);
-
       // Encrypt the key with the PIN
-      const encryptedKey = encrypt_key(keyBytes, pin);
+      const encryptedKey = encrypt_key(asymmetricKey, pin);
 
       // Store both the PIN and the encrypted key
       await Promise.all([
@@ -52,11 +44,8 @@ export function SetPIN({ onComplete }: SetPINProps) {
         storeAsymmetricKey(uint8ArrayToBase64(encryptedKey))
       ]);
 
-      // Clear the temporary key
-      sessionStorage.removeItem("tempAsymmetricKey");
-
       toast.success("PIN configuré avec succès");
-      onComplete();
+      onComplete(pin);
     } catch (error) {
       setError("Erreur lors de la configuration du PIN");
       console.error("Error setting PIN:", error);

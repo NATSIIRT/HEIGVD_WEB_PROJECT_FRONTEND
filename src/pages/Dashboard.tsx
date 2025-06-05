@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
 import { Plus, Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,8 +6,9 @@ import { SecretList } from "@/components/SecretList";
 import { AddSecret } from "@/components/AddSecret";
 import { EditSecret } from "@/components/EditSecret";
 import { SetPIN } from "@/components/SetPIN";
+import { VerifyPIN } from "@/components/VerifyPIN";
 import type { Secret } from "@/types/secret";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   fetchCurrentUser,
@@ -17,31 +17,42 @@ import {
   updateSecret,
   deleteSecret,
 } from "@/lib/api";
-import { getStoredPIN, storeAsymmetricKey } from "@/lib/indexedDB";
+import { getStoredPIN, storeAsymmetricKey, getAsymmetricKey } from "@/lib/indexedDB";
+import { decrypt_key } from "@/wasm/crypto/pkg/crypto";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [secrets, setSecrets] = useState<Secret[]>([]);
   const [filteredSecrets, setFilteredSecrets] = useState<Secret[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [currentUser, setCurrentUser] = useState<{
     id: number;
     username: string;
   } | null>(null);
   const [showSetPIN, setShowSetPIN] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [decryptedKey, setDecryptedKey] = useState<Uint8Array | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showPINVerification, setShowPINVerification] = useState(true);
+  const [currentPIN, setCurrentPIN] = useState<string | null>(null);
+  const [asymmetricKey, setAsymmetricKey] = useState<Uint8Array | null>(null);
+  const [isPINVerified, setIsPINVerified] = useState(false);
 
   useEffect(() => {
     const checkPIN = async () => {
       try {
         const storedPIN = await getStoredPIN();
         if (!storedPIN) {
+          const key = location.state?.asymmetricKey;
+          if (!key) {
+            throw new Error("Clé asymétrique non trouvée");
+          }
+          setAsymmetricKey(key);
           setShowSetPIN(true);
+        } else {
+          setShowPINVerification(true);
         }
       } catch (error) {
         console.error("Error checking PIN:", error);
@@ -52,7 +63,7 @@ export default function Dashboard() {
     };
 
     checkPIN();
-  }, []);
+  }, [location.state]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -131,7 +142,7 @@ export default function Dashboard() {
         secret.id === updated.id ? updated : secret
       );
       setSecrets(updatedSecrets);
-      setIsEditModalOpen(false);
+      setShowEditDialog(false);
       setSelectedSecret(null);
       toast.success("Secret modifié avec succès");
     } catch (error) {
@@ -148,7 +159,7 @@ export default function Dashboard() {
       await deleteSecret(token, id);
       const updatedSecrets = secrets.filter((secret) => secret.id !== id);
       setSecrets(updatedSecrets);
-      setIsEditModalOpen(false);
+      setShowEditDialog(false);
       setSelectedSecret(null);
       toast.success("Secret supprimé avec succès");
     } catch (error) {
@@ -157,9 +168,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleSecretClick = (secret: Secret, decryptedKey: Uint8Array) => {
+  const handleSecretClick = async (secret: Secret) => {
     setSelectedSecret(secret);
-    setDecryptedKey(decryptedKey);
     setShowEditDialog(true);
   };
 
@@ -167,6 +177,35 @@ export default function Dashboard() {
     localStorage.removeItem("token");
     storeAsymmetricKey("");
     navigate("/sign-in");
+  };
+
+  const handlePINVerified = (pin: string) => {
+    setCurrentPIN(pin);
+    setShowPINVerification(false);
+    setIsPINVerified(true);
+  };
+
+  const handlePINCancel = () => {
+    setShowPINVerification(false);
+  };
+
+  const getDecryptedKey = async (): Promise<Uint8Array> => {
+    if (!currentPIN) {
+      throw new Error("PIN non disponible");
+    }
+
+    const encryptedKey = await getAsymmetricKey();
+    if (!encryptedKey) {
+      throw new Error("Clé asymétrique non trouvée");
+    }
+
+    return decrypt_key(encryptedKey, currentPIN);
+  };
+
+  const handleSetPINComplete = (pin: string) => {
+    setCurrentPIN(pin);
+    setShowSetPIN(false);
+    setIsPINVerified(true);
   };
 
   if (isLoading) {
@@ -182,8 +221,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {showSetPIN ? (
-        <SetPIN onComplete={() => setShowSetPIN(false)} />
+      {showSetPIN && asymmetricKey ? (
+        <SetPIN onComplete={handleSetPINComplete} asymmetricKey={asymmetricKey} />
+      ) : showPINVerification ? (
+        <VerifyPIN onVerify={handlePINVerified} onCancel={() => navigate("/sign-in")} />
       ) : (
         <div className="mx-auto max-w-4xl p-4">
           <div className="mb-6 flex items-center justify-between">
@@ -210,27 +251,33 @@ export default function Dashboard() {
             />
           </div>
 
-          <SecretList
-            secrets={filteredSecrets}
-            onSecretClick={handleSecretClick}
-          />
+          {isPINVerified && (
+            <SecretList
+              secrets={filteredSecrets}
+              onSecretClick={handleSecretClick}
+              getDecryptedKey={getDecryptedKey}
+              onNeedPIN={() => setShowPINVerification(true)}
+            />
+          )}
 
           <AddSecret
             isOpen={isAddModalOpen}
             onClose={() => setIsAddModalOpen(false)}
             onAdd={handleAddSecret}
+            getDecryptedKey={getDecryptedKey}
+            onNeedPIN={() => setShowPINVerification(true)}
           />
 
           {showEditDialog && selectedSecret && (
             <EditSecret
               secret={selectedSecret}
-              decryptedKey={decryptedKey}
+              getDecryptedKey={getDecryptedKey}
               onClose={() => {
                 setShowEditDialog(false);
                 setSelectedSecret(null);
-                setDecryptedKey(null);
               }}
               onSecretUpdated={handleEditSecret}
+              onDelete={handleDeleteSecret}
             />
           )}
         </div>

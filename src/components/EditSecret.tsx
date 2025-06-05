@@ -31,12 +31,13 @@ import { toast } from "sonner"
 
 interface EditSecretProps {
   secret: Secret
-  decryptedKey: Uint8Array
+  getDecryptedKey: () => Promise<Uint8Array>
   onClose: () => void
   onSecretUpdated: (updatedSecret: Secret) => Promise<void>
+  onDelete: (id: string) => Promise<void>
 }
 
-export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: EditSecretProps) {
+export function EditSecret({ secret, getDecryptedKey, onClose, onSecretUpdated, onDelete }: EditSecretProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [formData, setFormData] = useState<NewSecret>({
@@ -49,6 +50,7 @@ export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: E
   useEffect(() => {
     const loadSecret = async () => {
       try {
+        const decryptedKey = await getDecryptedKey();
         const decryptedSecret = await decrypt_secret(secret.value, secret.nonce, decryptedKey)
         setFormData({
           title: decryptedSecret.title || "",
@@ -62,7 +64,7 @@ export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: E
     }
 
     loadSecret()
-  }, [secret, decryptedKey])
+  }, [secret, getDecryptedKey])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -74,22 +76,26 @@ export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: E
     setIsLoading(true)
 
     try {
-      const encrypted_secret = await encrypt_secret({
+      const decryptedKey = await getDecryptedKey();
+      const encryptedSecret = await encrypt_secret(
+        {
+          title: formData.title,
+          description: formData.description,
+          value: formData.value,
+        },
+        decryptedKey
+      );
+
+      onSecretUpdated({
+        ...secret,
+        ...encryptedSecret,
         title: formData.title,
         description: formData.description,
-        value: formData.value,
-      }, decryptedKey)
-
-      await onSecretUpdated({
-        ...secret,
-        value: encrypted_secret.value,
-        nonce: encrypted_secret.nonce,
-      })
-
-      onClose()
+      });
+      onClose();
     } catch (error) {
-      console.error("Error updating secret:", error)
-      toast.error("Erreur lors de la mise à jour du secret")
+      console.error("Error encrypting secret:", error);
+      toast.error("Erreur lors du chiffrement du secret");
     } finally {
       setIsLoading(false)
     }
@@ -97,12 +103,7 @@ export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: E
 
   const handleDelete = async () => {
     try {
-      await onSecretUpdated({
-        ...secret,
-        value: "",
-        nonce: "",
-      })
-      setIsDeleteDialogOpen(false)
+      await onDelete(secret.id)
       onClose()
     } catch (error) {
       console.error("Error deleting secret:", error)
@@ -117,7 +118,7 @@ export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: E
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>Modifier le secret</DialogTitle>
-              <DialogDescription>Modifiez ou supprimez ce secret</DialogDescription>
+              <DialogDescription>Modifiez les informations du secret</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -190,14 +191,12 @@ export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: E
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action ne peut pas être annulée. Ce secret sera définitivement supprimé.
+              Cette action est irréversible. Le secret sera définitivement supprimé.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-              Supprimer
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete}>Supprimer</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

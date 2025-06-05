@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { base64ToUint8Array, uint8ArrayToBase64 } from "@/lib/utils";
+import { base64ToUint8Array } from "@/lib/utils";
 import { derivate_key } from "@/wasm/crypto/pkg/crypto";
 
 export default function LoginPage() {
@@ -57,12 +57,9 @@ export default function LoginPage() {
       const passwordBytes = new TextEncoder().encode(formData.password);
       const key = derivate_key(passwordBytes, salt);
 
-      // Store the key in sessionStorage temporarily
-      sessionStorage.setItem("tempAsymmetricKey", uint8ArrayToBase64(key));
-
       localStorage.setItem("token", data.token);
       toast.success("Connexion réussie");
-      navigate("/");
+      navigate("/", { state: { asymmetricKey: key } });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Email ou mot de passe incorrect");
       console.error("Error during login:", error);

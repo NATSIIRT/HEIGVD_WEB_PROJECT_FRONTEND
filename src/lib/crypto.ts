@@ -3,7 +3,7 @@ import { encrypt, decrypt, decrypt_key } from "@/wasm/crypto/pkg/crypto";
 import { base64ToUint8Array, uint8ArrayToBase64, uint8ArrayToString } from "./utils";
 import { getAsymmetricKey } from "./indexedDB";
 
-export async function encrypt_secret(secret: NewSecret, key?: Uint8Array): Promise<EncryptedSecret> {
+export async function encrypt_secret(secret: NewSecret, key?: Uint8Array, pin?: string): Promise<EncryptedSecret> {
   let encryptionKey: Uint8Array;
   
   if (key) {
@@ -15,8 +15,6 @@ export async function encrypt_secret(secret: NewSecret, key?: Uint8Array): Promi
       throw new Error("Vault is locked: no key available");
     }
 
-    // Get the PIN from sessionStorage
-    const pin = sessionStorage.getItem("currentPIN");
     if (!pin) {
       throw new Error("Vault is locked: PIN required");
     }
@@ -36,7 +34,7 @@ export async function encrypt_secret(secret: NewSecret, key?: Uint8Array): Promi
   }
 }
 
-export async function decrypt_secret(ciphertext: string, nonce: string, key?: Uint8Array): Promise<Secret> {
+export async function decrypt_secret(ciphertext: string, nonce: string, key?: Uint8Array, pin?: string): Promise<Secret> {
   let decryptionKey: Uint8Array;
   
   if (key) {
@@ -48,8 +46,6 @@ export async function decrypt_secret(ciphertext: string, nonce: string, key?: Ui
       throw new Error("Vault is locked: no key available");
     }
 
-    // Get the PIN from sessionStorage
-    const pin = sessionStorage.getItem("currentPIN");
     if (!pin) {
       throw new Error("Vault is locked: PIN required");
     }

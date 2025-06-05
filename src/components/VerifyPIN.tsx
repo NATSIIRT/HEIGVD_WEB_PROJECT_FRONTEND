@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { verifyPIN, storeAsymmetricKey, getAsymmetricKey } from "@/lib/indexedDB";
-import { toast } from "sonner";
+import { verifyPIN } from "@/lib/indexedDB";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { encrypt_key, decrypt_key } from "@/wasm/crypto/pkg/crypto";
 
 interface VerifyPINProps {
-  onVerify: (decryptedKey: Uint8Array) => void;
+  onVerify: (pin: string) => void;
   onCancel: () => void;
 }
 
@@ -29,34 +27,7 @@ export function VerifyPIN({ onVerify, onCancel }: VerifyPINProps) {
         return;
       }
 
-      // Get the temporary symmetric key from sessionStorage
-      const tempKey = sessionStorage.getItem("tempAsymmetricKey");
-      if (tempKey) {
-        // Encrypt the symmetric key with the PIN
-        const encryptedKey = encrypt_key(
-          new Uint8Array(atob(tempKey).split('').map(c => c.charCodeAt(0))),
-          pin
-        );
-        
-        // Store the encrypted key in IndexedDB
-        await storeAsymmetricKey(btoa(String.fromCharCode(...encryptedKey)));
-        
-        // Remove the temporary key from sessionStorage
-        sessionStorage.removeItem("tempAsymmetricKey");
-
-        // Pass the decrypted key to the parent component
-        onVerify(new Uint8Array(atob(tempKey).split('').map(c => c.charCodeAt(0))));
-      } else {
-        // If no temporary key, try to decrypt the existing key
-        const encryptedKey = await getAsymmetricKey();
-        if (!encryptedKey) {
-          throw new Error("Aucune clé asymétrique trouvée");
-        }
-
-        // Decrypt the key with the PIN
-        const decryptedKey = decrypt_key(encryptedKey, pin);
-        onVerify(decryptedKey);
-      }
+      onVerify(pin);
     } catch (error) {
       setError("Erreur lors de la vérification du PIN");
       console.error("Error verifying PIN:", error);
