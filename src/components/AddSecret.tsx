@@ -17,13 +17,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { Secret } from "@/types/secret"
-import { encode_secret } from "../wasm/crypto/pkg/crypto"
+import { encrypt_secret } from "@/lib/crypto"
+
 
 interface AddSecretProps {
   isOpen: boolean
   onClose: () => void
   onAdd: (secret: Secret) => void
 }
+
 
 export function AddSecret({ isOpen, onClose, onAdd }: AddSecretProps) {
   const [showPassword, setShowPassword] = useState(false)
@@ -40,17 +42,19 @@ export function AddSecret({ isOpen, onClose, onAdd }: AddSecretProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
-      const encodedValue = encode_secret(
-        formData.title,
-        formData.description,
-        formData.value
-      )
+      const encrypted_secret = encrypt_secret({
+        title: formData.title,
+        description: formData.description,
+        value: formData.value,
+      });
+
 
       onAdd({
         id: Date.now().toString(),
-        value: encodedValue,
+        value: encrypted_secret.value,
+        nonce: encrypted_secret.nonce,
         user_id: 1, // This will be set by the parent component
       })
 

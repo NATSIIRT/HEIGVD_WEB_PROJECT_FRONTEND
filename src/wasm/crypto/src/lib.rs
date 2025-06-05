@@ -1,9 +1,19 @@
 mod utils;
 
-use wasm_bindgen::prelude::*;
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use serde::{Serialize, Deserialize};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen;
+use wasm_bindgen::prelude::*;
+
+use std::error;
+
+use aes_gcm::{
+    aead::{consts::U12, generic_array::GenericArray, Aead, AeadCore, KeyInit, OsRng},
+    Aes256Gcm,
+    Key, // Or `Aes128Gcm`
+    Nonce,
+};
+use argon2::Argon2;
 
 #[derive(Serialize, Deserialize)]
 pub struct Secret {
@@ -23,30 +33,33 @@ pub fn greet() {
 }
 
 #[wasm_bindgen]
-pub fn encode_secret(title: &str, description: &str, value: &str) -> Result<String, JsValue> {
-    let secret = Secret {
-        title: title.to_string(),
-        description: description.to_string(),
-        value: value.to_string(),
-    };
-
-    let json = serde_json::to_string(&secret)
-        .map_err(|e| JsValue::from_str(&format!("Failed to serialize secret: {}", e)))?;
-
-    Ok(BASE64.encode(json))
+pub fn derivate_key(password: &[u8], salt: &[u8]) -> Vec<u8> {
+    let mut key = [0u8; 32];
+    Argon2::default()
+        .hash_password_into(password, salt, &mut key)
+        .unwrap();
+    key.to_vec()
 }
 
 #[wasm_bindgen]
-pub fn decode_secret(encoded: &str) -> Result<JsValue, JsValue> {
-    let decoded = BASE64.decode(encoded)
-        .map_err(|e| JsValue::from_str(&format!("Failed to decode base64: {}", e)))?;
+pub fn encrypt(plaintext: &[u8], key: &[u8], nonce: &[u8]) -> Vec<u8> {
+    assert_eq!(key.len(), 32, "Key must be 32 bytes for AES-256");
+    assert_eq!(nonce.len(), 12, "Nonce must be 12 bytes");
 
-    let json_str = String::from_utf8(decoded)
-        .map_err(|e| JsValue::from_str(&format!("Failed to convert to UTF-8: {}", e)))?;
+    let key = Key::<Aes256Gcm>::from_slice(key);
+    let nonce = GenericArray::<u8, U12>::from_slice(nonce);
+    let cipher = Aes256Gcm::new(key);
+    cipher.encrypt(nonce, plaintext).unwrap()
+}
 
-    let secret: Secret = serde_json::from_str(&json_str)
-        .map_err(|e| JsValue::from_str(&format!("Failed to parse secret: {}", e)))?;
+#[wasm_bindgen]
+pub fn decrypt(ciphertext: &[u8], key: &[u8], nonce: &[u8]) -> Vec<u8> {
+    assert_eq!(key.len(), 32, "Key must be 32 bytes for AES-256");
+    assert_eq!(nonce.len(), 12, "Nonce must be 12 bytes");
 
-    serde_wasm_bindgen::to_value(&secret)
-        .map_err(|e| JsValue::from_str(&format!("Failed to convert to JsValue: {}", e)))
+    let key = Key::<Aes256Gcm>::from_slice(key);
+    let nonce = GenericArray::<u8, U12>::from_slice(nonce);
+
+    let cipher = Aes256Gcm::new(key);
+    cipher.decrypt(nonce, ciphertext).unwrap()
 }

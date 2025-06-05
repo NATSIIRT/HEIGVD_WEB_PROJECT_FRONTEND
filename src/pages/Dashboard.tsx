@@ -134,6 +134,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           secret: {
             value: newSecret.value,
+            nonce: newSecret.nonce,
             user_id: currentUser.id,
           },
         }),
@@ -189,6 +190,7 @@ export default function Dashboard() {
           },
           body: JSON.stringify({
             value: updatedSecret.value,
+            nonce: updatedSecret.nonce
           }),
         }
       );

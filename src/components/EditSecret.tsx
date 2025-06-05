@@ -25,12 +25,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import type { Secret } from "@/types/secret"
-import { encode_secret, decode_secret } from "../wasm/crypto/pkg/crypto"
+import { decrypt_secret, encrypt_secret } from "@/lib/crypto"
 
 interface DecodedSecret {
   title: string
   description: string
   value: string
+  nonce: Uint8Array | null
 }
 
 interface EditSecretProps {
@@ -41,6 +42,7 @@ interface EditSecretProps {
   onDelete: (id: string) => void
 }
 
+
 export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSecretProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -48,19 +50,22 @@ export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSe
     title: "",
     description: "",
     value: "",
+    nonce: null,
   })
 
   useEffect(() => {
     const loadSecret = async () => {
       try {
-        const decoded = decode_secret(secret.value)
-        setFormData(decoded as unknown as DecodedSecret)
+        const value = decrypt_secret(secret.value, secret.nonce);
+
+        setFormData(value as unknown as DecodedSecret)
       } catch (error) {
         console.error("Error decoding secret:", error)
         setFormData({
           title: "Secret invalide",
           description: "Impossible de décoder ce secret",
           value: "",
+          nonce: null,
         })
       }
     }
@@ -75,17 +80,19 @@ export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
-      const encodedValue = encode_secret(
-        formData.title,
-        formData.description,
-        formData.value
-      )
+      const encrypted_secret = encrypt_secret({
+        title: formData.title,
+        description: formData.description,
+        value: formData.value,
+      });
+
 
       onEdit({
         ...secret,
-        value: encodedValue,
+        value: encrypted_secret.value,
+        nonce: encrypted_secret.nonce
       })
     } catch (error) {
       console.error("Error encoding secret:", error)

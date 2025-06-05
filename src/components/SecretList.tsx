@@ -1,8 +1,8 @@
 import { Key } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import type { Secret } from "@/types/secret"
-import { decode_secret } from "../wasm/crypto/pkg/crypto"
 import { useEffect, useState } from "react"
+import { decrypt_secret } from "@/lib/crypto"
 
 interface SecretListProps {
   secrets: Secret[]
@@ -12,7 +12,7 @@ interface SecretListProps {
 interface DecodedSecret {
   title: string
   description: string
-  value: string
+  value: Uint8Array<ArrayBufferLike> | null
 }
 
 export function SecretList({ secrets, onSecretClick }: SecretListProps) {
@@ -25,14 +25,15 @@ export function SecretList({ secrets, onSecretClick }: SecretListProps) {
 
         for (const secret of secrets) {
           try {
-            const decoded = decode_secret(secret.value)
-            newDecodedSecrets.set(secret.id, decoded as unknown as DecodedSecret)
+            const value = decrypt_secret(secret.value, secret.nonce);
+
+            newDecodedSecrets.set(secret.id, value as unknown as DecodedSecret)
           } catch (error) {
             console.error(`Error decoding secret ${secret.id}:`, error)
             newDecodedSecrets.set(secret.id, {
               title: "Secret invalide",
               description: "Impossible de décoder ce secret",
-              value: "",
+              value: null,
             })
           }
         }
