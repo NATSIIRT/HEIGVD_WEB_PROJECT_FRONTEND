@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [currentPIN, setCurrentPIN] = useState<string | null>(null);
   const [asymmetricKey, setAsymmetricKey] = useState<Uint8Array | null>(null);
   const [isPINVerified, setIsPINVerified] = useState(false);
+  const [decodedSecrets, setDecodedSecrets] = useState<Map<string, { title: string; description: string }>>(new Map());
 
   useEffect(() => {
     const checkPIN = async () => {
@@ -94,18 +95,37 @@ export default function Dashboard() {
     if (searchQuery.trim() === "") {
       setFilteredSecrets(secrets);
     } else {
-      const filtered = secrets.filter(
-        (secret) =>
-          (secret.title?.toLowerCase().includes(searchQuery.toLowerCase()) ??
-            false) ||
-          (secret.description
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ??
-            false)
-      );
+      const query = searchQuery.toLowerCase();
+      const filtered = secrets.filter((secret) => {
+        const decoded = decodedSecrets.get(secret.id);
+        if (!decoded) return false;
+        
+        return (
+          decoded.title.toLowerCase().includes(query) ||
+          decoded.description.toLowerCase().includes(query)
+        );
+      });
       setFilteredSecrets(filtered);
     }
   }, [searchQuery, secrets]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredSecrets(secrets);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = secrets.filter((secret) => {
+        const decoded = decodedSecrets.get(secret.id);
+        if (!decoded) return false;
+        
+        return (
+          decoded.title.toLowerCase().includes(query) ||
+          decoded.description.toLowerCase().includes(query)
+        );
+      });
+      setFilteredSecrets(filtered);
+    }
+  }, [decodedSecrets]);
 
   const handleAddSecret = async (newSecret: Secret) => {
     const token = localStorage.getItem("token");
@@ -185,10 +205,6 @@ export default function Dashboard() {
     setIsPINVerified(true);
   };
 
-  const handlePINCancel = () => {
-    setShowPINVerification(false);
-  };
-
   const getDecryptedKey = async (): Promise<Uint8Array> => {
     if (!currentPIN) {
       throw new Error("PIN non disponible");
@@ -257,6 +273,7 @@ export default function Dashboard() {
               onSecretClick={handleSecretClick}
               getDecryptedKey={getDecryptedKey}
               onNeedPIN={() => setShowPINVerification(true)}
+              onSecretsDecoded={setDecodedSecrets}
             />
           )}
 

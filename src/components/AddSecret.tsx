@@ -40,33 +40,6 @@ export function AddSecret({ isOpen, onClose, onAdd, getDecryptedKey, onNeedPIN }
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handlePINVerified = async (pin: string) => {
-    try {
-      const decryptedKey = await getDecryptedKey();
-      const encryptedSecret = await encrypt_secret(
-        {
-          title: formData.title,
-          description: formData.description,
-          value: formData.value,
-        },
-        decryptedKey
-      );
-
-      onAdd({
-        id: "", // TODO : Check if the id is needed
-        user_id: 0, // TODO : Check if the user_id is needed
-        value: encryptedSecret.value,
-        nonce: encryptedSecret.nonce,
-        title: formData.title,
-        description: formData.description,
-      });
-      onClose();
-    } catch (error) {
-      console.error("Error encrypting secret:", error);
-      toast.error("Erreur lors du chiffrement du secret");
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 

@@ -9,6 +9,7 @@ interface SecretListProps {
   onSecretClick: (secret: Secret) => void
   getDecryptedKey: () => Promise<Uint8Array>
   onNeedPIN: () => void
+  onSecretsDecoded: (decodedSecrets: Map<string, { title: string; description: string }>) => void
 }
 
 interface DecodedSecret {
@@ -19,7 +20,7 @@ interface DecodedSecret {
   value: string
 }
 
-export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN }: SecretListProps) {
+export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN, onSecretsDecoded }: SecretListProps) {
   const [decodedSecrets, setDecodedSecrets] = useState<Map<string, DecodedSecret>>(new Map())
   const [isDecoding, setIsDecoding] = useState(false)
 
@@ -29,11 +30,18 @@ export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN 
 
       try {
         setIsDecoding(true)
-        const newDecodedSecrets = new Map<string, DecodedSecret>()
+
+        // Only decode secrets that haven't been decoded yet
+        const secretsToDecode = secrets.filter(secret => !decodedSecrets.has(secret.id));
+        
+        if (secretsToDecode.length === 0) {
+          setIsDecoding(false);
+          return;
+        }
 
         try {
           const decodedSecrets = await Promise.all(
-            secrets.map(async (secret) => {
+            secretsToDecode.map(async (secret) => {
               try {
                 const decryptedKey = await getDecryptedKey();
                 const decodedSecret = await decrypt_secret(
@@ -63,16 +71,32 @@ export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN 
               }
             })
           );
+
+          // Merge new decoded secrets with existing ones
+          const mergedDecodedSecrets = new Map<string, DecodedSecret>();
+          // Add existing secrets
           decodedSecrets.forEach((secret) => {
-            newDecodedSecrets.set(secret.id, secret);
+            mergedDecodedSecrets.set(secret.id, secret);
           });
+          // Add new secrets
+          decodedSecrets.forEach((secret) => {
+            mergedDecodedSecrets.set(secret.id, secret);
+          });
+
+          // Notify parent component of all decoded secrets
+          const decodedSecretsMap = new Map<string, { title: string; description: string }>(
+            Array.from(mergedDecodedSecrets.entries()).map(([id, secret]) => [
+              id,
+              { title: secret.title, description: secret.description }
+            ])
+          );
+          onSecretsDecoded(decodedSecretsMap);
+          setDecodedSecrets(mergedDecodedSecrets);
         } catch (error) {
           console.error("Error getting decrypted key:", error)
           onNeedPIN()
           return
         }
-
-        setDecodedSecrets(newDecodedSecrets)
       } catch (error) {
         console.error("Error initializing WASM:", error)
       } finally {
@@ -81,7 +105,7 @@ export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN 
     }
 
     decodeAllSecrets()
-  }, [secrets, getDecryptedKey, onNeedPIN])
+  }, [secrets, getDecryptedKey, onNeedPIN, onSecretsDecoded])
 
   if (secrets.length === 0) {
     return (
