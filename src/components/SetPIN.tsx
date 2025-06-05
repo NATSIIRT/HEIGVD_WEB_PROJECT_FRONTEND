@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { storePIN } from "@/lib/indexedDB";
+import { storePIN, storeAsymmetricKey } from "@/lib/indexedDB";
 import { toast } from "sonner";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { base64ToUint8Array, uint8ArrayToBase64 } from "@/lib/utils";
+import { encrypt_key } from "@/wasm/crypto/pkg/crypto";
 
 interface SetPINProps {
   onComplete: () => void;
@@ -32,7 +34,27 @@ export function SetPIN({ onComplete }: SetPINProps) {
     }
 
     try {
-      await storePIN(pin);
+      // Get the temporary asymmetric key
+      const tempKey = sessionStorage.getItem("tempAsymmetricKey");
+      if (!tempKey) {
+        throw new Error("Clé asymétrique temporaire non trouvée");
+      }
+
+      // Convert the key to Uint8Array
+      const keyBytes = base64ToUint8Array(tempKey);
+
+      // Encrypt the key with the PIN
+      const encryptedKey = encrypt_key(keyBytes, pin);
+
+      // Store both the PIN and the encrypted key
+      await Promise.all([
+        storePIN(pin),
+        storeAsymmetricKey(uint8ArrayToBase64(encryptedKey))
+      ]);
+
+      // Clear the temporary key
+      sessionStorage.removeItem("tempAsymmetricKey");
+
       toast.success("PIN configuré avec succès");
       onComplete();
     } catch (error) {
