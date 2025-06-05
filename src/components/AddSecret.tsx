@@ -44,7 +44,7 @@ export function AddSecret({ isOpen, onClose, onAdd }: AddSecretProps) {
     e.preventDefault()
 
     try {
-      const encrypted_secret = encrypt_secret({
+      const encrypted_secret = await encrypt_secret({
         title: formData.title,
         description: formData.description,
         value: formData.value,

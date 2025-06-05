@@ -1,3 +1,4 @@
+// src/pages/Dashboard.tsx
 import { useEffect, useState } from "react";
 import { Plus, Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,14 @@ import { SetPIN } from "@/components/SetPIN";
 import type { Secret } from "@/types/secret";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { getStoredPIN } from "@/lib/indexedDB";
+import {
+  fetchCurrentUser,
+  fetchSecrets,
+  createSecret,
+  updateSecret,
+  deleteSecret,
+} from "@/lib/api";
+import { getStoredPIN, storeAsymmetricKey } from "@/lib/indexedDB";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -51,56 +59,22 @@ export default function Dashboard() {
       return;
     }
 
-    // Fetch current user info
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/protected_route", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(
-            errorData?.errors?.[0] || "Erreur lors de la récupération des informations utilisateur"
-          );
-        }
-
-        const userData = await response.json();
-        setCurrentUser(userData);
-      } catch (error) {
+    fetchCurrentUser(token)
+      .then(setCurrentUser)
+      .catch((error) => {
         console.error("Error fetching user:", error);
         navigate("/sign-in");
-      }
-    };
+      });
 
-    fetchCurrentUser();
-
-    // Load secrets from API
-    const fetchSecrets = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/secrets", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.errors?.[0] || "Erreur lors du chargement des secrets");
-        }
-
-        const data = await response.json();
+    fetchSecrets(token)
+      .then((data) => {
         setSecrets(data);
         setFilteredSecrets(data);
-      } catch (error) {
+      })
+      .catch((error) => {
         toast.error("Erreur lors du chargement des secrets");
         console.error("Error fetching secrets:", error);
-      }
-    };
-
-    fetchSecrets();
+      });
   }, [navigate]);
 
   useEffect(() => {
@@ -125,46 +99,13 @@ export default function Dashboard() {
     if (!token || !currentUser) return;
 
     try {
-      const response = await fetch("http://localhost:3000/secrets", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          secret: {
-            value: newSecret.value,
-            nonce: newSecret.nonce,
-            user_id: currentUser.id,
-          },
-        }),
+      const newEntry = await createSecret(token, currentUser.id, {
+        value: newSecret.value,
+        nonce: newSecret.nonce,
       });
-
-      // Log the response status and headers
-      console.log("Response status:", response.status);
-      console.log(
-        "Response headers:",
-        Object.fromEntries(response.headers.entries())
-      );
-
-      // Get the raw response text first
-      const responseText = await response.text();
-      console.log("Raw response:", responseText);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.errors?.[0] || "Erreur lors de l'ajout du secret");
-      }
-
-      // Only try to parse JSON if we have content
-      const data = responseText ? JSON.parse(responseText) : null;
-      if (data) {
-        setSecrets([...secrets, data]);
-        setIsAddModalOpen(false);
-        toast.success("Secret ajouté avec succès");
-      } else {
-        toast.success("Secret ajouté avec succès");
-      }
+      setSecrets([...secrets, newEntry]);
+      setIsAddModalOpen(false);
+      toast.success("Secret ajouté avec succès");
     } catch (error) {
       console.error("Error details:", error);
       toast.error(
@@ -180,29 +121,12 @@ export default function Dashboard() {
     if (!token) return;
 
     try {
-      const response = await fetch(
-        `http://localhost:3000/secrets/${updatedSecret.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            value: updatedSecret.value,
-            nonce: updatedSecret.nonce
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.errors?.[0] || "Erreur lors de la modification du secret");
-      }
-
-      const data = await response.json();
+      const updated = await updateSecret(token, updatedSecret.id, {
+        value: updatedSecret.value,
+        nonce: updatedSecret.nonce,
+      });
       const updatedSecrets = secrets.map((secret) =>
-        secret.id === updatedSecret.id ? data : secret
+        secret.id === updated.id ? updated : secret
       );
       setSecrets(updatedSecrets);
       setIsEditModalOpen(false);
@@ -219,18 +143,7 @@ export default function Dashboard() {
     if (!token) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/secrets/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.errors?.[0] || "Erreur lors de la suppression du secret");
-      }
-
+      await deleteSecret(token, id);
       const updatedSecrets = secrets.filter((secret) => secret.id !== id);
       setSecrets(updatedSecrets);
       setIsEditModalOpen(false);
@@ -249,6 +162,7 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    storeAsymmetricKey("");
     navigate("/sign-in");
   };
 
@@ -321,3 +235,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

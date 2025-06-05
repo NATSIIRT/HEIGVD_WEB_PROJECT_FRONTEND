@@ -25,7 +25,7 @@ export function SecretList({ secrets, onSecretClick }: SecretListProps) {
 
         for (const secret of secrets) {
           try {
-            const value = decrypt_secret(secret.value, secret.nonce);
+            const value = await decrypt_secret(secret.value, secret.nonce);
 
             newDecodedSecrets.set(secret.id, value as unknown as DecodedSecret)
           } catch (error) {

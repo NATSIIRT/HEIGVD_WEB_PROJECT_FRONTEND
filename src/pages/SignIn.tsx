@@ -15,6 +15,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { storeAsymmetricKey, } from "@/lib/indexedDB";
+import { base64ToUint8Array, uint8ArrayToBase64 } from "@/lib/utils";
+import { derivate_key } from "@/wasm/crypto/pkg/crypto";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -49,6 +52,15 @@ export default function LoginPage() {
       }
 
       const data = await response.json();
+
+      // generate sym key
+      const salt = base64ToUint8Array(data.sym_key_salt);
+      const passwordBytes = new TextEncoder().encode(formData.password);
+      const key = derivate_key(passwordBytes, salt);
+
+      // TODO: encrypt later with pin
+      await storeAsymmetricKey(uint8ArrayToBase64(key));
+
       localStorage.setItem("token", data.token);
       toast.success("Connexion réussie");
       navigate("/");

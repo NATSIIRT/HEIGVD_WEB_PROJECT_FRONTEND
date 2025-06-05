@@ -56,7 +56,7 @@ export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSe
   useEffect(() => {
     const loadSecret = async () => {
       try {
-        const value = decrypt_secret(secret.value, secret.nonce);
+        const value = await decrypt_secret(secret.value, secret.nonce);
 
         setFormData(value as unknown as DecodedSecret)
       } catch (error) {
@@ -82,7 +82,7 @@ export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSe
     e.preventDefault()
 
     try {
-      const encrypted_secret = encrypt_secret({
+      const encrypted_secret = await encrypt_secret({
         title: formData.title,
         description: formData.description,
         value: formData.value,
