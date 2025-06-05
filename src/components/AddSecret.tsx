@@ -17,7 +17,6 @@ import type { Secret } from "@/types/secret"
 import { uint8ArrayToBase64 } from "@/lib/utils"
 import { encrypt } from "@/wasm/crypto/pkg/crypto"
 import { toast } from "sonner"
-import { encrypt_secret } from "@/lib/crypto"
 
 interface AddSecretProps {
   isOpen: boolean

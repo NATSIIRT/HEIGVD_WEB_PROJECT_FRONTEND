@@ -4,9 +4,12 @@
 
 A modern frontend project for a secure password manager using:
 
-- **React + Vite** for the user interface
-- **TailwindCSS** for styling
+- **React 19 + Vite 6** for the user interface
+- **TailwindCSS 4** for styling
 - **Rust (compiled to WebAssembly)** for client-side encryption
+- **Radix UI / ShadcnUI** for accessible components
+- **React Router 7** for routing
+- **TypeScript** for type safety
 
 ---
 
@@ -16,23 +19,24 @@ A modern frontend project for a secure password manager using:
 HEIGVD_WEB_PROJECT_FRONTEND/
 ├── public/                 # Static files (favicon, etc.)
 ├── src/
-│   ├── assets/             # Images, fonts, icons
-│   ├── components/         # Reusable UI components (buttons, fields, etc.)
-│   ├── lib/                # Lib files
-│   ├── pages/              # Routed pages (Home, Passwords, etc.)
-│   ├── routes/             # Centralized routing logic (AppRoutes)
-│   ├── types/              # Types files
-│   ├── utils/              # Utility functions
-│   ├── wasm/               # Rust crate for encryption logic
-│   │   └── crypto/         # Rust crate (created with wasm-pack)
-│   ├── App.tsx             # Main app component
-│   ├── main.tsx            # ReactDOM entry point
-│   └── index.css           # Tailwind entry
-├── Makefile                # Build/watch Rust WASM easily
-├── package.json            # Project metadata + dependencies
-├── tailwind.config.js      # Tailwind setup
-├── postcss.config.cjs      # PostCSS setup for Tailwind
-└── vite.config.ts          # Vite configuration
+│   ├── assets/            # Images, fonts, icons
+│   ├── components/        # Reusable UI components (buttons, fields, etc.)
+│   ├── lib/               # Lib files
+│   ├── pages/             # Routed pages (Home, Passwords, etc.)
+│   ├── routes/            # Centralized routing logic (AppRoutes)
+│   ├── types/             # TypeScript type definitions
+│   ├── wasm/              # Rust crate for encryption logic
+│   │   └── crypto/        # Rust crate (created with wasm-pack)
+│   ├── App.tsx            # Main app component
+│   ├── main.tsx           # ReactDOM entry point
+│   └── index.css          # Tailwind entry
+├── .github/               # GitHub workflows and templates
+├── components.json        # UI components configuration
+├── Makefile              # Build/watch Rust WASM easily
+├── package.json          # Project metadata + dependencies
+├── tsconfig.json         # TypeScript configuration
+├── vite.config.ts        # Vite configuration
+└── eslint.config.js      # ESLint configuration
 ```
 
 _Not exhaustive_
@@ -111,7 +115,7 @@ Build the project for production:
 npm run build
 ```
 
-You can find the production file (`index.html`) in the `dist` folder.
+You can find the production files in the `dist` folder.
 
 ---
 
@@ -120,6 +124,8 @@ You can find the production file (`index.html`) in the `dist` folder.
 - Rust functions must be annotated with `#[wasm_bindgen]` to be accessible in JavaScript.
 - The crate must use `--target bundler` for Vite compatibility.
 - All encryption happens **locally in the browser**, ensuring privacy.
+- The project uses modern React 19 features and TypeScript for better type safety.
+- UI components are built with Radix UI / ShadcnUI for accessibility and TailwindCSS for styling.
 
 ---
 
