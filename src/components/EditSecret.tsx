@@ -24,54 +24,45 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import type { NewSecret } from "@/types/secret"
 import type { Secret } from "@/types/secret"
 import { decrypt_secret, encrypt_secret } from "@/lib/crypto"
-
-interface DecodedSecret {
-  title: string
-  description: string
-  value: string
-  nonce: Uint8Array | null
-}
+import { toast } from "sonner"
 
 interface EditSecretProps {
-  isOpen: boolean
-  onClose: () => void
   secret: Secret
-  onEdit: (secret: Secret) => void
-  onDelete: (id: string) => void
+  decryptedKey: Uint8Array
+  onClose: () => void
+  onSecretUpdated: (updatedSecret: Secret) => Promise<void>
 }
 
-
-export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSecretProps) {
+export function EditSecret({ secret, decryptedKey, onClose, onSecretUpdated }: EditSecretProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [formData, setFormData] = useState<DecodedSecret>({
+  const [formData, setFormData] = useState<NewSecret>({
     title: "",
     description: "",
     value: "",
-    nonce: null,
   })
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     const loadSecret = async () => {
       try {
-        const value = await decrypt_secret(secret.value, secret.nonce);
-
-        setFormData(value as unknown as DecodedSecret)
+        const decryptedSecret = await decrypt_secret(secret.value, secret.nonce, decryptedKey)
+        setFormData({
+          title: decryptedSecret.title || "",
+          description: decryptedSecret.description || "",
+          value: decryptedSecret.value,
+        })
       } catch (error) {
         console.error("Error decoding secret:", error)
-        setFormData({
-          title: "Secret invalide",
-          description: "Impossible de décoder ce secret",
-          value: "",
-          nonce: null,
-        })
+        toast.error("Erreur lors du décodage du secret")
       }
     }
 
     loadSecret()
-  }, [secret])
+  }, [secret, decryptedKey])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -80,33 +71,48 @@ export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsLoading(true)
 
     try {
       const encrypted_secret = await encrypt_secret({
         title: formData.title,
         description: formData.description,
         value: formData.value,
-      });
+      }, decryptedKey)
 
-
-      onEdit({
+      await onSecretUpdated({
         ...secret,
         value: encrypted_secret.value,
-        nonce: encrypted_secret.nonce
+        nonce: encrypted_secret.nonce,
       })
+
+      onClose()
     } catch (error) {
-      console.error("Error encoding secret:", error)
+      console.error("Error updating secret:", error)
+      toast.error("Erreur lors de la mise à jour du secret")
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleDelete = () => {
-    onDelete(secret.id)
-    setIsDeleteDialogOpen(false)
+  const handleDelete = async () => {
+    try {
+      await onSecretUpdated({
+        ...secret,
+        value: "",
+        nonce: "",
+      })
+      setIsDeleteDialogOpen(false)
+      onClose()
+    } catch (error) {
+      console.error("Error deleting secret:", error)
+      toast.error("Erreur lors de la suppression du secret")
+    }
   }
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={true} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
@@ -170,7 +176,9 @@ export function EditSecret({ isOpen, onClose, secret, onEdit, onDelete }: EditSe
                 <Button type="button" variant="outline" onClick={onClose}>
                   Annuler
                 </Button>
-                <Button type="submit">Enregistrer</Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Enregistrement..." : "Enregistrer"}
+                </Button>
               </div>
             </DialogFooter>
           </form>

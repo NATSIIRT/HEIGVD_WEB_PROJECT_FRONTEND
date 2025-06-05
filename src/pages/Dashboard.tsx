@@ -33,6 +33,8 @@ export default function Dashboard() {
   } | null>(null);
   const [showSetPIN, setShowSetPIN] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [decryptedKey, setDecryptedKey] = useState<Uint8Array | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   useEffect(() => {
     const checkPIN = async () => {
@@ -155,9 +157,10 @@ export default function Dashboard() {
     }
   };
 
-  const handleSecretClick = (secret: Secret) => {
+  const handleSecretClick = (secret: Secret, decryptedKey: Uint8Array) => {
     setSelectedSecret(secret);
-    setIsEditModalOpen(true);
+    setDecryptedKey(decryptedKey);
+    setShowEditDialog(true);
   };
 
   const handleLogout = () => {
@@ -218,16 +221,16 @@ export default function Dashboard() {
             onAdd={handleAddSecret}
           />
 
-          {selectedSecret && (
+          {showEditDialog && selectedSecret && (
             <EditSecret
-              isOpen={isEditModalOpen}
-              onClose={() => {
-                setIsEditModalOpen(false);
-                setSelectedSecret(null);
-              }}
               secret={selectedSecret}
-              onEdit={handleEditSecret}
-              onDelete={handleDeleteSecret}
+              decryptedKey={decryptedKey}
+              onClose={() => {
+                setShowEditDialog(false);
+                setSelectedSecret(null);
+                setDecryptedKey(null);
+              }}
+              onSecretUpdated={handleEditSecret}
             />
           )}
         </div>

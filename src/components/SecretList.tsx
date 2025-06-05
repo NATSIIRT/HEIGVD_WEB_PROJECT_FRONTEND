@@ -9,7 +9,7 @@ import { toast } from "sonner"
 
 interface SecretListProps {
   secrets: Secret[]
-  onSecretClick: (secret: Secret) => void
+  onSecretClick: (secret: Secret, decryptedKey: Uint8Array) => void
 }
 
 interface DecodedSecret {
@@ -98,7 +98,7 @@ export function SecretList({ secrets, onSecretClick }: SecretListProps) {
             <Card
               key={secret.id}
               className="cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() => onSecretClick(secret)}
+              onClick={() => onSecretClick(secret, decryptedKey!)}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
