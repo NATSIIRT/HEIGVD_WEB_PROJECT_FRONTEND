@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import type { Secret } from "@/types/secret";
 
-const API_URL = "http://localhost:3000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export async function fetchCurrentUser(token: string) {
   const response = await fetch(`${API_URL}/protected_route`, {
@@ -75,5 +75,41 @@ export async function deleteSecret(token: string, id: string): Promise<void> {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.errors?.[0] || "Erreur lors de la suppression du secret");
   }
+}
+
+export async function loginUser(
+  username: string,
+  password: string
+): Promise<{ token: string; sym_key_salt: string }> {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.errors?.[0] || "Identifiants invalides");
+  }
+
+  return await response.json();
+}
+
+export async function registerUser(
+  username: string,
+  password: string
+): Promise<{ token: string }> {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.errors?.[0] || "Erreur lors de l'inscription");
+  }
+
+  return await response.json();
 }
 

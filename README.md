@@ -93,13 +93,37 @@ base64 = "0.21"          # Used for simple encryption demo
 
 ## 🚀 Development
 
+### Dependencies
+
+Make sure you install [watchexec](https://github.com/watchexec/watchexec).
+
+You also need to install Rust's WASM toolchain. But first, you need to install Rust's toolchain installer [rustup](https://rustup.rs/).
+
+Then, simply type these commands to install the WASM toolchain:
+
+```sh
+cargo install wasm-pack
+rustup component add llvm-tools
+cargo install cargo-generate
+```
+
+### Setup
+
+This will compile rust's WASM and install it in a directory so our React app can use it.
+
+Set the API url in the `.env` file. It should contain something like this (3000 is the default port for the ROR api)
+
+```env
+VITE_API_URL="http://localhost:3000"
+```
+
 Start React dev server:
 
 ```bash
 npm run dev
 ```
 
-Start Rust WASM watcher (in another terminal):
+Compile the rust `crypto` and start the WASM watcher (in another terminal):
 
 ```bash
 make watch
@@ -109,7 +133,7 @@ make watch
 
 ## 📦 Build
 
-Build the project for production:
+Then, build the project for production (this will also compile WASM):
 
 ```bash
 npm run build

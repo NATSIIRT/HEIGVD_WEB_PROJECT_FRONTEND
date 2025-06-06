@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { registerUser } from "@/lib/api";
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -50,23 +51,8 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3000/users", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          password: formData.password,
-        }),
-      });
+      const data = await registerUser(formData.username, formData.password);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.errors?.[0] || "Erreur lors de l'inscription");
-      }
-
-      const data = await response.json();
       localStorage.setItem("token", data.token);
       toast.success("Inscription réussie");
       navigate("/");
