@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,47 +24,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import type { NewSecret } from "@/types/secret"
-import type { Secret } from "@/types/secret"
-import { decrypt_secret, encrypt_secret } from "@/lib/crypto"
+import type { Secret, DecodedSecret } from "@/types/secret"
+import { encrypt_secret } from "@/lib/crypto"
 import { toast } from "sonner"
 
 interface EditSecretProps {
-  secret: Secret
+  decodedSecret: DecodedSecret
   getDecryptedKey: () => Promise<Uint8Array>
   onClose: () => void
   onSecretUpdated: (updatedSecret: Secret) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
 
-export function EditSecret({ secret, getDecryptedKey, onClose, onSecretUpdated, onDelete }: EditSecretProps) {
+export function EditSecret({ decodedSecret, getDecryptedKey, onClose, onSecretUpdated, onDelete }: EditSecretProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [formData, setFormData] = useState<NewSecret>({
-    title: "",
-    description: "",
-    value: "",
+  const [formData, setFormData] = useState({
+    title: decodedSecret.decodedTitle,
+    description: decodedSecret.decodedDescription,
+    value: decodedSecret.decodedValue,
   })
   const [isLoading, setIsLoading] = useState(false)
-
-  useEffect(() => {
-    const loadSecret = async () => {
-      try {
-        const decryptedKey = await getDecryptedKey();
-        const decryptedSecret = await decrypt_secret(secret.value, secret.nonce, decryptedKey)
-        setFormData({
-          title: decryptedSecret.title || "",
-          description: decryptedSecret.description || "",
-          value: decryptedSecret.value,
-        })
-      } catch (error) {
-        console.error("Error decoding secret:", error)
-        toast.error("Erreur lors du décodage du secret")
-      }
-    }
-
-    loadSecret()
-  }, [secret, getDecryptedKey])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -86,12 +66,14 @@ export function EditSecret({ secret, getDecryptedKey, onClose, onSecretUpdated, 
         decryptedKey
       );
 
-      onSecretUpdated({
-        ...secret,
-        ...encryptedSecret,
-        title: formData.title,
-        description: formData.description,
-      });
+      const updatedSecret: Secret = {
+        id: decodedSecret.id,
+        user_id: decodedSecret.user_id,
+        value: encryptedSecret.value,
+        nonce: encryptedSecret.nonce,
+      };
+
+      await onSecretUpdated(updatedSecret);
       onClose();
     } catch (error) {
       console.error("Error encrypting secret:", error);
@@ -103,7 +85,7 @@ export function EditSecret({ secret, getDecryptedKey, onClose, onSecretUpdated, 
 
   const handleDelete = async () => {
     try {
-      await onDelete(secret.id)
+      await onDelete(decodedSecret.id)
       onClose()
     } catch (error) {
       console.error("Error deleting secret:", error)

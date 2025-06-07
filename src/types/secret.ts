@@ -23,3 +23,15 @@ export type PlainSecret = {
   description: string
   value: string
 }
+
+
+export interface DecodedSecret {
+  id: string;
+  user_id: number;
+  value: string;
+  nonce: string;
+  decodedTitle: string;
+  decodedDescription: string;
+  decodedValue: string;
+  isDecoded: boolean;
+}

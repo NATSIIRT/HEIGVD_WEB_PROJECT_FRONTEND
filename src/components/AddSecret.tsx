@@ -77,8 +77,6 @@ export function AddSecret({ isOpen, onClose, onAdd, getDecryptedKey, onNeedPIN }
         value: "",
       })
       onClose()
-
-      toast.success("Secret ajouté avec succès")
     } catch (error) {
       console.error("Error encoding secret:", error)
       if (error instanceof Error && error.message === "PIN non disponible") {

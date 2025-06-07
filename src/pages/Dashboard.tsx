@@ -7,7 +7,7 @@ import { AddSecret } from "@/components/AddSecret";
 import { EditSecret } from "@/components/EditSecret";
 import { SetPIN } from "@/components/SetPIN";
 import { VerifyPIN } from "@/components/VerifyPIN";
-import type { Secret } from "@/types/secret";
+import type { Secret, DecodedSecret } from "@/types/secret";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -19,14 +19,16 @@ import {
 } from "@/lib/api";
 import { getStoredPIN, storeAsymmetricKey, getAsymmetricKey } from "@/lib/indexedDB";
 import { decrypt_key } from "@/wasm/crypto/pkg/crypto";
+import { decrypt_secret } from "@/lib/crypto";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [secrets, setSecrets] = useState<Secret[]>([]);
+  const [decodedSecrets, setDecodedSecrets] = useState<Map<string, DecodedSecret>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
+  const [selectedSecretId, setSelectedSecretId] = useState<string | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [currentUser, setCurrentUser] = useState<{
     id: number;
@@ -38,25 +40,120 @@ export default function Dashboard() {
   const [currentPIN, setCurrentPIN] = useState<string | null>(null);
   const [asymmetricKey, setAsymmetricKey] = useState<Uint8Array | null>(null);
   const [isPINVerified, setIsPINVerified] = useState(false);
-  const [decodedSecrets, setDecodedSecrets] = useState<Map<string, { title: string; description: string }>>(new Map());
+  const [isDecoding, setIsDecoding] = useState(false);
 
-  // Filtered secrets using useMemo for performance optimization
-  const filteredSecrets = useMemo(() => {
+  // Get decrypted key function
+  const getDecryptedKey = async (): Promise<Uint8Array> => {
+    if (!currentPIN) {
+      throw new Error("PIN non disponible");
+    }
+
+    const encryptedKey = await getAsymmetricKey();
+    if (!encryptedKey) {
+      throw new Error("Clé asymétrique non trouvée");
+    }
+
+    return decrypt_key(encryptedKey, currentPIN);
+  };
+
+  // Decode a single secret
+  const decodeSecret = async (secret: Secret): Promise<DecodedSecret> => {
+    try {
+      const decryptedKey = await getDecryptedKey();
+      const decoded = await decrypt_secret(secret.value, secret.nonce, decryptedKey);
+      
+      return {
+        ...secret,
+        decodedTitle: decoded.title || "",
+        decodedDescription: decoded.description || "",
+        decodedValue: decoded.value || "",
+        isDecoded: true,
+      };
+    } catch (error) {
+      console.error("Error decoding secret:", error);
+      return {
+        ...secret,
+        decodedTitle: "Secret invalide",
+        decodedDescription: "Impossible de décoder ce secret",
+        decodedValue: "",
+        isDecoded: false,
+      };
+    }
+  };
+
+  // Decode all secrets when they change or PIN is verified
+  useEffect(() => {
+    if (!isPINVerified || secrets.length === 0) return;
+
+    const decodeAllSecrets = async () => {
+      setIsDecoding(true);
+      
+      try {
+        // Only decode secrets that haven't been decoded yet or have changed
+        const secretsToDecode = secrets.filter(secret => 
+          !decodedSecrets.has(secret.id) || 
+          decodedSecrets.get(secret.id)?.value !== secret.value
+        );
+
+        if (secretsToDecode.length === 0) {
+          setIsDecoding(false);
+          return;
+        }
+
+        // Decode secrets in parallel
+        const decodedResults = await Promise.all(
+          secretsToDecode.map(secret => decodeSecret(secret))
+        );
+
+        // Update the decoded secrets map
+        setDecodedSecrets(prev => {
+          const newMap = new Map(prev);
+          decodedResults.forEach(decoded => {
+            newMap.set(decoded.id, decoded);
+          });
+          
+          // Remove secrets that no longer exist
+          const currentIds = new Set(secrets.map(s => s.id));
+          const filteredMap = new Map();
+          newMap.forEach((value, key) => {
+            if (currentIds.has(key)) {
+              filteredMap.set(key, value);
+            }
+          });
+          
+          return filteredMap;
+        });
+      } catch (error) {
+        console.error("Error decoding secrets:", error);
+        if (error instanceof Error && error.message.includes("PIN")) {
+          setShowPINVerification(true);
+          setIsPINVerified(false);
+        }
+      } finally {
+        setIsDecoding(false);
+      }
+    };
+
+    decodeAllSecrets();
+  }, [secrets, isPINVerified, currentPIN]);
+
+  // Filtered secrets using decoded data
+  const filteredDecodedSecrets = useMemo(() => {
+    const decoded = Array.from(decodedSecrets.values());
+    
     if (searchQuery.trim() === "") {
-      return secrets;
+      return decoded;
     }
     
     const query = searchQuery.toLowerCase();
-    return secrets.filter((secret) => {
-      const decoded = decodedSecrets.get(secret.id);
-      if (!decoded) return false;
-      
-      return (
-        decoded.title.toLowerCase().includes(query) ||
-        decoded.description.toLowerCase().includes(query)
-      );
-    });
-  }, [searchQuery, secrets, decodedSecrets]);
+    return decoded.filter((secret) => 
+      secret.decodedTitle.toLowerCase().includes(query) ||
+      secret.decodedDescription.toLowerCase().includes(query)
+    );
+  }, [searchQuery, decodedSecrets]);
+
+  // Get selected decoded secret
+  const selectedDecodedSecret = selectedSecretId ? decodedSecrets.get(selectedSecretId) : null;
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -67,15 +164,12 @@ export default function Dashboard() {
 
     const loadData = async () => {
       try {
-        // First check if the token is valid by fetching current user
         const user = await fetchCurrentUser(token);
         setCurrentUser(user);
 
-        // Only fetch secrets if we have a valid user
         const secretsData = await fetchSecrets(token);
         setSecrets(secretsData);
 
-        // Only check PIN if we have valid data
         const storedPIN = await getStoredPIN();
         if (!storedPIN) {
           const key = location.state?.asymmetricKey;
@@ -111,7 +205,7 @@ export default function Dashboard() {
         value: newSecret.value,
         nonce: newSecret.nonce,
       });
-      setSecrets([...secrets, newEntry]);
+      setSecrets(prev => [...prev, newEntry]);
       setIsAddModalOpen(false);
       toast.success("Secret ajouté avec succès");
     } catch (error) {
@@ -133,12 +227,14 @@ export default function Dashboard() {
         value: updatedSecret.value,
         nonce: updatedSecret.nonce,
       });
-      const updatedSecrets = secrets.map((secret) =>
+      
+      // Update secrets array
+      setSecrets(prev => prev.map(secret =>
         secret.id === updated.id ? updated : secret
-      );
-      setSecrets(updatedSecrets);
+      ));
+      
       setShowEditDialog(false);
-      setSelectedSecret(null);
+      setSelectedSecretId(null);
       toast.success("Secret modifié avec succès");
     } catch (error) {
       toast.error("Erreur lors de la modification du secret");
@@ -152,10 +248,14 @@ export default function Dashboard() {
 
     try {
       await deleteSecret(token, id);
-      const updatedSecrets = secrets.filter((secret) => secret.id !== id);
-      setSecrets(updatedSecrets);
+      setSecrets(prev => prev.filter(secret => secret.id !== id));
+      setDecodedSecrets(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(id);
+        return newMap;
+      });
       setShowEditDialog(false);
-      setSelectedSecret(null);
+      setSelectedSecretId(null);
       toast.success("Secret supprimé avec succès");
     } catch (error) {
       toast.error("Erreur lors de la suppression du secret");
@@ -163,8 +263,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleSecretClick = async (secret: Secret) => {
-    setSelectedSecret(secret);
+  const handleSecretClick = (secret: DecodedSecret) => {
+    setSelectedSecretId(secret.id);
     setShowEditDialog(true);
   };
 
@@ -178,19 +278,6 @@ export default function Dashboard() {
     setCurrentPIN(pin);
     setShowPINVerification(false);
     setIsPINVerified(true);
-  };
-
-  const getDecryptedKey = async (): Promise<Uint8Array> => {
-    if (!currentPIN) {
-      throw new Error("PIN non disponible");
-    }
-
-    const encryptedKey = await getAsymmetricKey();
-    if (!encryptedKey) {
-      throw new Error("Clé asymétrique non trouvée");
-    }
-
-    return decrypt_key(encryptedKey, currentPIN);
   };
 
   const handleSetPINComplete = (pin: string) => {
@@ -245,11 +332,9 @@ export default function Dashboard() {
 
           {isPINVerified && (
             <SecretList
-              secrets={filteredSecrets}
+              decodedSecrets={filteredDecodedSecrets}
               onSecretClick={handleSecretClick}
-              getDecryptedKey={getDecryptedKey}
-              onNeedPIN={() => setShowPINVerification(true)}
-              onSecretsDecoded={setDecodedSecrets}
+              isDecoding={isDecoding}
             />
           )}
 
@@ -261,16 +346,16 @@ export default function Dashboard() {
             onNeedPIN={() => setShowPINVerification(true)}
           />
 
-          {showEditDialog && selectedSecret && (
+          {showEditDialog && selectedDecodedSecret && (
             <EditSecret
-              secret={selectedSecret}
-              getDecryptedKey={getDecryptedKey}
+              decodedSecret={selectedDecodedSecret}
               onClose={() => {
                 setShowEditDialog(false);
-                setSelectedSecret(null);
+                setSelectedSecretId(null);
               }}
               onSecretUpdated={handleEditSecret}
               onDelete={handleDeleteSecret}
+              getDecryptedKey={getDecryptedKey}
             />
           )}
         </div>

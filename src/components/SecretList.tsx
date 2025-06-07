@@ -1,34 +1,20 @@
 import { Key, Copy, Check } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import type { Secret } from "@/types/secret"
-import { useEffect, useState } from "react"
-import { decrypt_secret } from "@/lib/crypto"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-
+import type { DecodedSecret } from "@/types/secret"
 interface SecretListProps {
-  secrets: Secret[]
-  onSecretClick: (secret: Secret) => void
-  getDecryptedKey: () => Promise<Uint8Array>
-  onNeedPIN: () => void
-  onSecretsDecoded: (decodedSecrets: Map<string, { title: string; description: string }>) => void
+  decodedSecrets: DecodedSecret[]
+  onSecretClick: (secret: DecodedSecret) => void
+  isDecoding: boolean
 }
 
-interface DecodedSecret {
-  id: string
-  user_id: number
-  title: string
-  description: string
-  value: string
-}
-
-export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN, onSecretsDecoded }: SecretListProps) {
-  const [decodedSecrets, setDecodedSecrets] = useState<Map<string, DecodedSecret>>(new Map())
-  const [isDecoding, setIsDecoding] = useState(false)
+export function SecretList({ decodedSecrets, onSecretClick, isDecoding }: SecretListProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const handleCopy = async (secret: DecodedSecret) => {
     try {
-      await navigator.clipboard.writeText(secret.value)
+      await navigator.clipboard.writeText(secret.decodedValue)
       setCopiedId(secret.id)
       setTimeout(() => setCopiedId(null), 2000)
     } catch (err) {
@@ -36,95 +22,12 @@ export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN,
     }
   }
 
-  useEffect(() => {
-    const decodeAllSecrets = async () => {
-      if (secrets.length === 0) return;
-
-      try {
-        setIsDecoding(true)
-
-        // Only decode secrets that haven't been decoded yet
-        const secretsToDecode = secrets.filter(secret => !decodedSecrets.has(secret.id));
-        
-        if (secretsToDecode.length === 0) {
-          setIsDecoding(false);
-          return;
-        }
-
-        try {
-          const decodedSecrets = await Promise.all(
-            secretsToDecode.map(async (secret) => {
-              try {
-                const decryptedKey = await getDecryptedKey();
-                const decodedSecret = await decrypt_secret(
-                  secret.value,
-                  secret.nonce,
-                  decryptedKey
-                );
-                return {
-                  id: secret.id,
-                  user_id: secret.user_id,
-                  title: decodedSecret.title || "",
-                  description: decodedSecret.description || "",
-                  value: decodedSecret.value || "",
-                };
-              } catch (error) {
-                console.error("Error decoding secret:", error);
-                if (error instanceof Error && error.message.includes("PIN required")) {
-                  onNeedPIN();
-                }
-                return {
-                  id: secret.id,
-                  user_id: secret.user_id,
-                  title: "Secret invalide",
-                  description: "Impossible de décoder ce secret",
-                  value: "",
-                };
-              }
-            })
-          );
-
-          // Merge new decoded secrets with existing ones
-          const mergedDecodedSecrets = new Map<string, DecodedSecret>();
-          // Add existing secrets
-          decodedSecrets.forEach((secret) => {
-            mergedDecodedSecrets.set(secret.id, secret);
-          });
-          // Add new secrets
-          decodedSecrets.forEach((secret) => {
-            mergedDecodedSecrets.set(secret.id, secret);
-          });
-
-          // Notify parent component of all decoded secrets
-          const decodedSecretsMap = new Map<string, { title: string; description: string }>(
-            Array.from(mergedDecodedSecrets.entries()).map(([id, secret]) => [
-              id,
-              { title: secret.title, description: secret.description }
-            ])
-          );
-          onSecretsDecoded(decodedSecretsMap);
-          setDecodedSecrets(mergedDecodedSecrets);
-        } catch (error) {
-          console.error("Error getting decrypted key:", error)
-          onNeedPIN()
-          return
-        }
-      } catch (error) {
-        console.error("Error initializing WASM:", error)
-      } finally {
-        setIsDecoding(false)
-      }
-    }
-
-    decodeAllSecrets()
-  }, [secrets, getDecryptedKey, onNeedPIN, onSecretsDecoded])
-
-  if (secrets.length === 0) {
+  if (decodedSecrets.length === 0 && !isDecoding) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-        <Key className="mb-2 h-10 w-10 text-gray-400" />
-        <h3 className="mb-1 text-lg font-medium">Aucun secret</h3>
-        <p className="text-sm text-gray-500">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center bg-card/50 backdrop-blur-sm transition-all duration-300 hover:bg-card/60">
+        <Key className="mb-4 h-12 w-12 text-primary/60 transition-transform duration-300 hover:scale-110" />
+        <h3 className="mb-2 text-xl font-semibold text-card-foreground">Aucun secret</h3>
+        <p className="text-sm text-muted-foreground max-w-sm">
           Ajoutez votre premier secret en cliquant sur le bouton &quot;Ajouter&quot;
         </p>
       </div>
@@ -132,51 +35,46 @@ export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN,
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {secrets.map((secret) => {
-        const decodedSecret = decodedSecrets.get(secret.id) || {
-          id: secret.id,
-          user_id: secret.user_id,
-          title: isDecoding ? "Déchiffrement..." : "Chargement...",
-          description: "",
-          value: "",
-        }
-
-        return (
-          <Card
-            key={secret.id}
-            className="cursor-pointer transition-shadow hover:shadow-md"
-            onClick={() => onSecretClick(secret)}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">{decodedSecret.title}</h3>
-                  <p className="text-sm text-gray-500 line-clamp-2">{decodedSecret.description}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleCopy(decodedSecret)
-                    }}
-                    className="h-8 w-8"
-                  >
-                    {copiedId === secret.id ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                  <Key className="h-5 w-5 text-gray-400" />
-                </div>
+    <div className="grid gap-6 md:grid-cols-2">
+      {decodedSecrets.map((secret) => (
+        <Card
+          key={secret.id}
+          className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] bg-card/80 backdrop-blur-sm border-border/50"
+          onClick={() => onSecretClick(secret)}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0 space-y-1">
+                <h3 className="font-medium truncate text-card-foreground group-hover:text-primary transition-colors duration-300">
+                  {isDecoding && !secret.isDecoded ? "Déchiffrement..." : secret.decodedTitle}
+                </h3>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {secret.decodedDescription}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        )
-      })}
+              <div className="flex items-center gap-3 ml-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCopy(secret)
+                  }}
+                  className="h-9 w-9 rounded-full transition-all duration-300 hover:bg-primary/10 hover:text-primary"
+                  disabled={!secret.isDecoded}
+                >
+                  {copiedId === secret.id ? (
+                    <Check className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+                <Key className="h-5 w-5 text-primary/60 transition-transform duration-300 group-hover:scale-110" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }
