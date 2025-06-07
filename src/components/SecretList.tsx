@@ -1,8 +1,9 @@
-import { Key } from "lucide-react"
+import { Key, Copy, Check } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import type { Secret } from "@/types/secret"
 import { useEffect, useState } from "react"
 import { decrypt_secret } from "@/lib/crypto"
+import { Button } from "@/components/ui/button"
 
 interface SecretListProps {
   secrets: Secret[]
@@ -23,6 +24,17 @@ interface DecodedSecret {
 export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN, onSecretsDecoded }: SecretListProps) {
   const [decodedSecrets, setDecodedSecrets] = useState<Map<string, DecodedSecret>>(new Map())
   const [isDecoding, setIsDecoding] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const handleCopy = async (secret: DecodedSecret) => {
+    try {
+      await navigator.clipboard.writeText(secret.value)
+      setCopiedId(secret.id)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy text: ', err)
+    }
+  }
 
   useEffect(() => {
     const decodeAllSecrets = async () => {
@@ -142,7 +154,24 @@ export function SecretList({ secrets, onSecretClick, getDecryptedKey, onNeedPIN,
                   <h3 className="font-medium">{decodedSecret.title}</h3>
                   <p className="text-sm text-gray-500 line-clamp-2">{decodedSecret.description}</p>
                 </div>
-                <Key className="h-5 w-5 text-gray-400" />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleCopy(decodedSecret)
+                    }}
+                    className="h-8 w-8"
+                  >
+                    {copiedId === secret.id ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4 text-gray-400" />
+                    )}
+                  </Button>
+                  <Key className="h-5 w-5 text-gray-400" />
+                </div>
               </div>
             </CardContent>
           </Card>
