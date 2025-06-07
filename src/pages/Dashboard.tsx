@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Plus, Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [secrets, setSecrets] = useState<Secret[]>([]);
-  const [filteredSecrets, setFilteredSecrets] = useState<Secret[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
@@ -41,30 +40,23 @@ export default function Dashboard() {
   const [isPINVerified, setIsPINVerified] = useState(false);
   const [decodedSecrets, setDecodedSecrets] = useState<Map<string, { title: string; description: string }>>(new Map());
 
-  useEffect(() => {
-    const checkPIN = async () => {
-      try {
-        const storedPIN = await getStoredPIN();
-        if (!storedPIN) {
-          const key = location.state?.asymmetricKey;
-          if (!key) {
-            throw new Error("Clé asymétrique non trouvée");
-          }
-          setAsymmetricKey(key);
-          setShowSetPIN(true);
-        } else {
-          setShowPINVerification(true);
-        }
-      } catch (error) {
-        console.error("Error checking PIN:", error);
-        toast.error("Erreur lors de la vérification du PIN");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkPIN();
-  }, [location.state]);
+  // Filtered secrets using useMemo for performance optimization
+  const filteredSecrets = useMemo(() => {
+    if (searchQuery.trim() === "") {
+      return secrets;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return secrets.filter((secret) => {
+      const decoded = decodedSecrets.get(secret.id);
+      if (!decoded) return false;
+      
+      return (
+        decoded.title.toLowerCase().includes(query) ||
+        decoded.description.toLowerCase().includes(query)
+      );
+    });
+  }, [searchQuery, secrets, decodedSecrets]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -73,59 +65,42 @@ export default function Dashboard() {
       return;
     }
 
-    fetchCurrentUser(token)
-      .then(setCurrentUser)
-      .catch((error) => {
-        console.error("Error fetching user:", error);
+    const loadData = async () => {
+      try {
+        // First check if the token is valid by fetching current user
+        const user = await fetchCurrentUser(token);
+        setCurrentUser(user);
+
+        // Only fetch secrets if we have a valid user
+        const secretsData = await fetchSecrets(token);
+        setSecrets(secretsData);
+
+        // Only check PIN if we have valid data
+        const storedPIN = await getStoredPIN();
+        if (!storedPIN) {
+          const key = location.state?.asymmetricKey;
+          if (!key) {
+            throw new Error("Clé asymétrique non trouvée");
+          }
+          setAsymmetricKey(key);
+          setShowSetPIN(true);
+          setIsPINVerified(false);
+        } else {
+          setShowPINVerification(true);
+          setIsPINVerified(false);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error("Session expirée ou invalide");
+        localStorage.removeItem("token");
         navigate("/sign-in");
-      });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    fetchSecrets(token)
-      .then((data) => {
-        setSecrets(data);
-        setFilteredSecrets(data);
-      })
-      .catch((error) => {
-        toast.error("Erreur lors du chargement des secrets");
-        console.error("Error fetching secrets:", error);
-      });
-  }, [navigate]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredSecrets(secrets);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = secrets.filter((secret) => {
-        const decoded = decodedSecrets.get(secret.id);
-        if (!decoded) return false;
-        
-        return (
-          decoded.title.toLowerCase().includes(query) ||
-          decoded.description.toLowerCase().includes(query)
-        );
-      });
-      setFilteredSecrets(filtered);
-    }
-  }, [searchQuery, secrets]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredSecrets(secrets);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = secrets.filter((secret) => {
-        const decoded = decodedSecrets.get(secret.id);
-        if (!decoded) return false;
-        
-        return (
-          decoded.title.toLowerCase().includes(query) ||
-          decoded.description.toLowerCase().includes(query)
-        );
-      });
-      setFilteredSecrets(filtered);
-    }
-  }, [decodedSecrets]);
+    loadData();
+  }, [navigate, location.state]);
 
   const handleAddSecret = async (newSecret: Secret) => {
     const token = localStorage.getItem("token");
@@ -222,6 +197,7 @@ export default function Dashboard() {
     setCurrentPIN(pin);
     setShowSetPIN(false);
     setIsPINVerified(true);
+    setShowPINVerification(false);
   };
 
   if (isLoading) {
@@ -302,4 +278,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

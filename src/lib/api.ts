@@ -1,4 +1,3 @@
-// src/lib/api.ts
 import type { Secret } from "@/types/secret";
 
 const API_URL = import.meta.env.VITE_API_URL;
