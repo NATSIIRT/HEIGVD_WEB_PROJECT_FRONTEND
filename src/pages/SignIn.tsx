@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { base64ToUint8Array } from "@/lib/utils";
 import { derivate_key } from "@/wasm/crypto/pkg/crypto";
+import { loginUser } from "@/lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -37,20 +38,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3000/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.errors?.[0] || "Identifiants invalides");
-      }
-
-      const data = await response.json();
+      const data = await loginUser(formData.username, formData.password);
 
       // generate sym key
       const salt = base64ToUint8Array(data.sym_key_salt);
