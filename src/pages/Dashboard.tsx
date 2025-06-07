@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Plus, Search, LogOut } from "lucide-react";
+import { Plus, Search, LogOut, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SecretList } from "@/components/SecretList";
@@ -18,8 +18,10 @@ import {
   deleteSecret,
 } from "@/lib/api";
 import { getStoredPIN, storeAsymmetricKey, getAsymmetricKey } from "@/lib/indexedDB";
-import { decrypt_key } from "@/wasm/crypto/pkg/crypto";
+import { decrypt_key, encrypt_key } from "@/wasm/crypto/pkg/crypto";
 import { decrypt_secret } from "@/lib/crypto";
+import { uint8ArrayToBase64 } from "@/lib/utils";
+import { useSecurity } from "@/hooks/useSecurity";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -42,6 +44,16 @@ export default function Dashboard() {
   const [isPINVerified, setIsPINVerified] = useState(false);
   const [isDecoding, setIsDecoding] = useState(false);
 
+  // Security hooks
+  const { lockSession, resetActivityTimer, manualLock } = useSecurity(
+    currentPIN,
+    decodedSecrets,
+    setCurrentPIN,
+    setDecodedSecrets,
+    setIsPINVerified,
+    setShowPINVerification
+  );
+
   // Get decrypted key function
   const getDecryptedKey = async (): Promise<Uint8Array> => {
     if (!currentPIN) {
@@ -53,6 +65,7 @@ export default function Dashboard() {
       throw new Error("Clé asymétrique non trouvée");
     }
 
+    resetActivityTimer();
     return decrypt_key(encryptedKey, currentPIN);
   };
 
@@ -89,7 +102,6 @@ export default function Dashboard() {
       setIsDecoding(true);
       
       try {
-        // Only decode secrets that haven't been decoded yet or have changed
         const secretsToDecode = secrets.filter(secret => 
           !decodedSecrets.has(secret.id) || 
           decodedSecrets.get(secret.id)?.value !== secret.value
@@ -100,19 +112,16 @@ export default function Dashboard() {
           return;
         }
 
-        // Decode secrets in parallel
         const decodedResults = await Promise.all(
           secretsToDecode.map(secret => decodeSecret(secret))
         );
 
-        // Update the decoded secrets map
         setDecodedSecrets(prev => {
           const newMap = new Map(prev);
           decodedResults.forEach(decoded => {
             newMap.set(decoded.id, decoded);
           });
           
-          // Remove secrets that no longer exist
           const currentIds = new Set(secrets.map(s => s.id));
           const filteredMap = new Map();
           newMap.forEach((value, key) => {
@@ -126,8 +135,7 @@ export default function Dashboard() {
       } catch (error) {
         console.error("Error decoding secrets:", error);
         if (error instanceof Error && error.message.includes("PIN")) {
-          setShowPINVerification(true);
-          setIsPINVerified(false);
+          lockSession();
         }
       } finally {
         setIsDecoding(false);
@@ -152,7 +160,6 @@ export default function Dashboard() {
     );
   }, [searchQuery, decodedSecrets]);
 
-  // Get selected decoded secret
   const selectedDecodedSecret = selectedSecretId ? decodedSecrets.get(selectedSecretId) : null;
 
   useEffect(() => {
@@ -171,21 +178,23 @@ export default function Dashboard() {
         setSecrets(secretsData);
 
         const storedPIN = await getStoredPIN();
+        const key = location.state?.asymmetricKey;
+        
+        if (!key) {
+          throw new Error("Clé asymétrique non trouvée");
+        }
+
         if (!storedPIN) {
-          const key = location.state?.asymmetricKey;
-          if (!key) {
-            throw new Error("Clé asymétrique non trouvée");
-          }
           setAsymmetricKey(key);
           setShowSetPIN(true);
           setIsPINVerified(false);
         } else {
+          setAsymmetricKey(key);
           setShowPINVerification(true);
           setIsPINVerified(false);
         }
       } catch (error) {
         console.error("Error loading data:", error);
-        toast.error("Session expirée ou invalide");
         localStorage.removeItem("token");
         navigate("/sign-in");
       } finally {
@@ -208,6 +217,7 @@ export default function Dashboard() {
       setSecrets(prev => [...prev, newEntry]);
       setIsAddModalOpen(false);
       toast.success("Secret ajouté avec succès");
+      resetActivityTimer();
     } catch (error) {
       console.error("Error details:", error);
       toast.error(
@@ -228,7 +238,6 @@ export default function Dashboard() {
         nonce: updatedSecret.nonce,
       });
       
-      // Update secrets array
       setSecrets(prev => prev.map(secret =>
         secret.id === updated.id ? updated : secret
       ));
@@ -236,6 +245,7 @@ export default function Dashboard() {
       setShowEditDialog(false);
       setSelectedSecretId(null);
       toast.success("Secret modifié avec succès");
+      resetActivityTimer();
     } catch (error) {
       toast.error("Erreur lors de la modification du secret");
       console.error("Error details:", error);
@@ -257,6 +267,7 @@ export default function Dashboard() {
       setShowEditDialog(false);
       setSelectedSecretId(null);
       toast.success("Secret supprimé avec succès");
+      resetActivityTimer();
     } catch (error) {
       toast.error("Erreur lors de la suppression du secret");
       console.error("Error details:", error);
@@ -266,6 +277,7 @@ export default function Dashboard() {
   const handleSecretClick = (secret: DecodedSecret) => {
     setSelectedSecretId(secret.id);
     setShowEditDialog(true);
+    resetActivityTimer();
   };
 
   const handleLogout = () => {
@@ -274,10 +286,21 @@ export default function Dashboard() {
     navigate("/sign-in");
   };
 
-  const handlePINVerified = (pin: string) => {
+  const handlePINVerified = async (pin: string) => {
     setCurrentPIN(pin);
     setShowPINVerification(false);
     setIsPINVerified(true);
+    resetActivityTimer();
+
+    if (asymmetricKey) {
+      try {
+        const encryptedKey = encrypt_key(asymmetricKey, pin);
+        await storeAsymmetricKey(uint8ArrayToBase64(encryptedKey));
+      } catch (error) {
+        console.error("Error storing asymmetric key:", error);
+        toast.error("Erreur lors du stockage de la clé");
+      }
+    }
   };
 
   const handleSetPINComplete = (pin: string) => {
@@ -285,6 +308,7 @@ export default function Dashboard() {
     setShowSetPIN(false);
     setIsPINVerified(true);
     setShowPINVerification(false);
+    resetActivityTimer();
   };
 
   if (isLoading) {
@@ -313,6 +337,10 @@ export default function Dashboard() {
                 <Plus className="mr-2 h-4 w-4" />
                 Ajouter
               </Button>
+              <Button variant="outline" onClick={manualLock}>
+                <Lock className="mr-2 h-4 w-4" />
+                Verrouiller
+              </Button>
               <Button variant="outline" onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Déconnexion
@@ -326,7 +354,10 @@ export default function Dashboard() {
               placeholder="Rechercher un mot de passe..."
               className="pl-10"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                resetActivityTimer();
+              }}
             />
           </div>
 
