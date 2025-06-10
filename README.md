@@ -1,15 +1,45 @@
-# 🔐 Password Manager – Frontend
+# 🔐 Secure Password Manager – Frontend
 
-> The backend part is here : https://github.com/Thynkon/password-manager-api
+> Depends on the backend part : https://github.com/Thynkon/password-manager-api
 
 A modern frontend project for a secure password manager using:
 
-- **React 19 + Vite 6** for the user interface
-- **TailwindCSS 4** for styling
+- **React 18 + Vite 6** for the user interface
+- **TailwindCSS 3** for styling
 - **Rust (compiled to WebAssembly)** for client-side encryption
 - **Radix UI / ShadcnUI** for accessible components
-- **React Router 7** for routing
+- **React Router 6** for routing
 - **TypeScript** for type safety
+- **IndexedDB** for local storage
+
+---
+
+## ✨ Features
+
+### Authentication & Security
+- 🔐 Secure Sign In / Sign Up
+- 🔒 PIN code setup and verification
+- 🔄 Auto-lock after inactivity
+- 🚪 Secure logout
+- 🔑 Client-side encryption (AES-256-GCM)
+
+### Password Management
+- 📝 Add new secrets/passwords
+- ✏️ Edit existing secrets
+- 📋 List all secrets
+- 🔍 Search through secrets
+- 📱 Responsive design for all devices
+
+### User Experience
+- 📦 Single file distribution
+- ⚡ Fast and responsive UI
+
+### Security Features
+- 🔒 All encryption happens locally
+- 🔑 Keys never leave your browser
+- 🔐 Secure key derivation with Argon2
+- 🔄 Automatic session management
+- 🛡️ Protection against common attacks
 
 ---
 
@@ -21,6 +51,7 @@ HEIGVD_WEB_PROJECT_FRONTEND/
 ├── src/
 │   ├── assets/            # Images, fonts, icons
 │   ├── components/        # Reusable UI components (buttons, fields, etc.)
+│   ├── hooks/             # Custom hooks
 │   ├── lib/               # Lib files
 │   ├── pages/             # Routed pages (Home, Passwords, etc.)
 │   ├── routes/            # Centralized routing logic (AppRoutes)
@@ -39,7 +70,84 @@ HEIGVD_WEB_PROJECT_FRONTEND/
 └── eslint.config.js      # ESLint configuration
 ```
 
-_Not exhaustive_
+_Notes : This is not exhaustive, we have some other files in the project._
+
+---
+
+## 📦 Download & Installation
+
+### Option 1: Single HTML File (Recommended for most users)
+You can download the latest release as a single `.html` file from the [releases section](https://github.com/Thynkon/password-manager-frontend/releases). This version:
+- Requires no installation
+- Works offline
+- Contains all dependencies (including WASM)
+- Can be opened directly in any modern browser
+
+### Option 2: Build from Source
+If you want to build the application yourself:
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Thynkon/password-manager-frontend.git
+   cd password-manager-frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Build the project:
+   ```bash
+   npm run build
+   ```
+
+The built files will be in the `dist` directory.
+
+### Requirements
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- JavaScript enabled
+- WebAssembly support
+- For development: Node.js 18+ and Rust toolchain
+
+---
+
+## 🔑 Encryption
+
+The encryption is handled by the `crypto` crate, which provides several key security features:
+
+### Key Features
+- **AES-256-GCM** for symmetric encryption
+- **Argon2** for key derivation
+- **Secure random number generation** using OS RNG
+- **Client-side encryption** for maximum privacy
+
+### Available Functions
+
+#### Key Management
+- `derivate_key(password, salt)`: Derives a 32-byte key using Argon2
+- `encrypt_key(main_key, pin)`: Encrypts the main key using a PIN
+- `decrypt_key(encrypted_key, pin)`: Decrypts the main key using a PIN
+
+#### Data Encryption
+- `encrypt(plaintext, key, nonce)`: Encrypts data using AES-256-GCM
+- `decrypt(ciphertext, key, nonce)`: Decrypts data using AES-256-GCM
+
+### Security Features
+- All encryption happens **locally in the browser**
+- Keys are never transmitted to the server
+- Uses cryptographically secure random number generation
+- Implements proper key derivation with Argon2
+- AES-256-GCM provides both confidentiality and authenticity
+
+### Data Structure
+```rust
+struct Secret {
+    title: String,
+    description: String,
+    value: String,
+}
+```
 
 ---
 
@@ -47,21 +155,15 @@ _Not exhaustive_
 
 The `src/wasm/crypto` folder is a Rust crate compiled to WebAssembly using [`wasm-pack`](https://rustwasm.github.io/wasm-pack/).
 
-### 🔧 Rust dependencies
+You can find the Rust code in the `src/wasm/crypto/src` folder.
 
-In `Cargo.toml`:
-
-```toml
-[dependencies]
-wasm-bindgen = "0.2"     # Required for JS/WASM interop
-base64 = "0.21"          # Used for simple encryption demo
-```
+The crate is automatically watched for changes using `watchexec` during development.
 
 ---
 
 ## 🔗 React ↔ WASM Integration
 
-1. **Build the crate**:
+1. **Build the crate ONLY**:
 
    ```bash
    wasm-pack build --target bundler
@@ -82,12 +184,12 @@ base64 = "0.21"          # Used for simple encryption demo
 
 ## 🛠 Makefile Commands
 
-| Command        | Description                               |
-| -------------- | ----------------------------------------- |
-| `make build`   | Builds the Rust crate using `wasm-pack`   |
-| `make watch`   | Automatically rebuild on file change      |
-| `make clean`   | Deletes generated `pkg/` folder           |
-| `make install` | Builds and installs WASM crate into React |
+| Command        | Description                                                      |
+| -------------- | ---------------------------------------------------------------- |
+| `make build`   | Builds the Rust crate using `wasm-pack`                          |
+| `make watch`   | Watches for changes in Rust files and rebuilds automatically     |
+| `make clean`   | Deletes generated `pkg/` folder                                  |
+| `make install` | Builds and installs WASM crate into React's node_modules         |
 
 ---
 
@@ -95,17 +197,29 @@ base64 = "0.21"          # Used for simple encryption demo
 
 ### Dependencies
 
-Make sure you install [watchexec](https://github.com/watchexec/watchexec).
+You need to install several tools:
 
-You also need to install Rust's WASM toolchain. But first, you need to install Rust's toolchain installer [rustup](https://rustup.rs/).
+1. Node.js (v18 or later):
+   ```sh
+   # Install Node.js from https://nodejs.org/
+   ```
 
-Then, simply type these commands to install the WASM toolchain:
+2. Rust's WASM toolchain:
+   ```sh
+   # Install rustup first from https://rustup.rs/
+   cargo install wasm-pack
+   rustup component add llvm-tools
+   cargo install cargo-generate
+   ```
 
-```sh
-cargo install wasm-pack
-rustup component add llvm-tools
-cargo install cargo-generate
-```
+3. Watchexec (for automatic rebuilding):
+   ```sh
+   # On Linux
+   cargo install watchexec-cli
+   # Or using your package manager
+   # sudo apt install watchexec  # Debian/Ubuntu
+   # sudo dnf install watchexec  # Fedora
+   ```
 
 ### Setup
 
@@ -133,13 +247,19 @@ make watch
 
 ## 📦 Build
 
-Then, build the project for production (this will also compile WASM):
+Build the project for production (this will also compile WASM):
 
 ```bash
 npm run build
 ```
 
-You can find the production files in the `dist` folder.
+The build process will:
+1. Compile the Rust WASM module
+2. Bundle all assets into a single HTML file
+3. Optimize and minify all code
+4. Generate source maps for debugging
+
+You can find the production files in the `dist` folder, with the main file being `index.html`.
 
 ---
 
@@ -148,7 +268,7 @@ You can find the production files in the `dist` folder.
 - Rust functions must be annotated with `#[wasm_bindgen]` to be accessible in JavaScript.
 - The crate must use `--target bundler` for Vite compatibility.
 - All encryption happens **locally in the browser**, ensuring privacy.
-- The project uses modern React 19 features and TypeScript for better type safety.
+- The project uses modern React 18 features and TypeScript for better type safety.
 - UI components are built with Radix UI / ShadcnUI for accessibility and TailwindCSS for styling.
 
 ---

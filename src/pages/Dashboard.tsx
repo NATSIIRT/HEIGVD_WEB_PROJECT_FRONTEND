@@ -329,19 +329,30 @@ export default function Dashboard() {
       ) : showPINVerification ? (
         <VerifyPIN onVerify={handlePINVerified} onCancel={() => navigate("/sign-in")} />
       ) : (
-        <div className="mx-auto max-w-4xl p-4">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Mes mots de passe</h1>
-            <div className="flex gap-2">
-              <Button onClick={() => setIsAddModalOpen(true)}>
+        <div className="mx-auto max-w-4xl p-4 sm:p-6">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-xl sm:text-2xl font-bold">Mes mots de passe</h1>
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                onClick={() => setIsAddModalOpen(true)}
+                className="w-full sm:w-auto"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Ajouter
               </Button>
-              <Button variant="outline" onClick={manualLock}>
+              <Button 
+                variant="outline" 
+                onClick={manualLock}
+                className="w-full sm:w-auto"
+              >
                 <Lock className="mr-2 h-4 w-4" />
                 Verrouiller
               </Button>
-              <Button variant="outline" onClick={handleLogout}>
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                className="w-full sm:w-auto"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Déconnexion
               </Button>
@@ -352,7 +363,7 @@ export default function Dashboard() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
               placeholder="Rechercher un mot de passe..."
-              className="pl-10"
+              className="pl-10 w-full"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -361,12 +372,21 @@ export default function Dashboard() {
             />
           </div>
 
-          {isPINVerified && (
-            <SecretList
-              decodedSecrets={filteredDecodedSecrets}
-              onSecretClick={handleSecretClick}
-              isDecoding={isDecoding}
-            />
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <span className="ml-2 text-sm text-gray-600">Chargement...</span>
+            </div>
+          )}
+
+          {isPINVerified && !isLoading && (
+            <div className="space-y-4">
+              <SecretList
+                decodedSecrets={filteredDecodedSecrets}
+                onSecretClick={handleSecretClick}
+                isDecoding={isDecoding}
+              />
+            </div>
           )}
 
           <AddSecret
