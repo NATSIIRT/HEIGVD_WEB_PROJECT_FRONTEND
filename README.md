@@ -4,8 +4,8 @@
 
 A modern frontend project for a secure password manager using:
 
-- **React 18 + Vite 6** for the user interface
-- **TailwindCSS 3** for styling
+- **React 19 + Vite 6** for the user interface
+- **TailwindCSS 4** for styling
 - **Rust (compiled to WebAssembly)** for client-side encryption
 - **Radix UI / ShadcnUI** for accessible components
 - **React Router 6** for routing
