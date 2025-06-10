@@ -263,6 +263,45 @@ You can find the production files in the `dist` folder, with the main file being
 
 ---
 
+## 🔧 Troubleshooting
+
+### CORS Error when Opening HTML File Directly
+
+If you see this error when opening the built `index.html` file directly in your browser:
+```
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at file:///... (Reason: CORS request not http)
+```
+
+#### Why does this happen?
+This error occurs because modern browsers block requests from `file://` protocol to `http://` protocol for security reasons. When you open the HTML file directly from your filesystem, it uses the `file://` protocol, but the API requests are made to `http://` URLs.
+
+#### How to fix it?
+
+1. **Use a Local Server (Recommended)**
+   ```bash
+   # Using Python
+   python -m http.server 8080
+   
+   # Or using Node.js
+   npx serve dist
+   ```
+   Then open `http://localhost:8080` in your browser.
+
+2. **Configure your Browser (Not Recommended for Production)**
+   - Chrome: Launch with `--disable-web-security` flag
+   - Firefox: Set `security.fileuri.strict_origin_policy` to `false` in `about:config`
+
+3. **Use HTTPS in Production**
+   - Deploy your application to a proper web server with HTTPS
+   - Update the API URL in your `.env` file to use HTTPS
+
+#### Best Practices
+- Always serve the application through a web server, even in development
+- Use HTTPS in production
+- Keep your API URL configuration in the `.env` file
+
+---
+
 ## 📌 Notes
 
 - Rust functions must be annotated with `#[wasm_bindgen]` to be accessible in JavaScript.
