@@ -14,7 +14,18 @@ export function SecretList({ decodedSecrets, onSecretClick, isDecoding }: Secret
 
   const handleCopy = async (secret: DecodedSecret) => {
     try {
-      await navigator.clipboard.writeText(secret.decodedValue)
+      const textArea = document.createElement('textarea')
+      textArea.value = secret.decodedValue
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      
+      document.execCommand('copy')
+      textArea.remove()
+      
       setCopiedId(secret.id)
       setTimeout(() => setCopiedId(null), 2000)
     } catch (err) {
